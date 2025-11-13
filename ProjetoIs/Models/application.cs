@@ -11,7 +11,7 @@ namespace ProjetoIs.Models
     public class application
     {
         [JsonPropertyName("resource-name")]
-        [Column("resource_name")]
+        [Column("resource-name")]
 
         public string ResourceName { get; set; }
 
@@ -20,7 +20,7 @@ namespace ProjetoIs.Models
         public string ResType { get; set; }
 
         [JsonPropertyName("creation-datetime")]
-        [Column("creation_datetime")]
+        [Column("creation-datetime")] // checkar
 
         public DateTime CreationDatetime { get; set; }
     }
