@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
-using System.Text.Json.Serialization;
+//using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 using System.Web;
 
 
@@ -10,16 +11,16 @@ namespace ProjetoIs.Models
 {
     public class application
     {
-        [JsonPropertyName("resource-name")]
+        [JsonProperty("resource-name")]
         [Column("resource-name")]
 
         public string ResourceName { get; set; }
 
-        [JsonPropertyName("res-type")]
+        [JsonProperty("res-type")]
         [Column("res-type")]
         public string ResType { get; set; }
 
-        [JsonPropertyName("creation-datetime")]
+        [JsonProperty("creation-datetime")]
         [Column("creation-datetime")] // checkar
 
         public DateTime CreationDatetime { get; set; }
