@@ -119,10 +119,13 @@
   <ItemGroup>
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Controllers\applicationController.cs" />
+    <Compile Include="Controllers\containerController.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Models\application.cs" />
+    <Compile Include="Models\common.cs" />
+    <Compile Include="Models\container.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
