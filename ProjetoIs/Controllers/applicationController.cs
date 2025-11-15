@@ -13,6 +13,14 @@ using static System.Net.Mime.MediaTypeNames;
  * 
  *************/
 
+/*** TO DO
+ * 
+ * ver o tipo de return que temos de enviar 
+ * se e HttpResponseMessage como está no GetApplication
+ * ou IHttpActionResult como esta no get e no post
+ *
+ ***/
+
 namespace ProjetoIs.Controllers
 {
     [RoutePrefix("api/somiod")]
@@ -21,20 +29,81 @@ namespace ProjetoIs.Controllers
     {
         string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIS.Properties.Settings.ConnectionString"].ConnectionString;
 
-        // GET: api/application
-        public IEnumerable<string> Get()
+
+        #region GetAll
+        // GET: “somiod-discovery: application” http://<domain:9876>/api/somiod - returns all applications
+        [HttpGet]
+        [Route("")]
+        public IHttpActionResult Get()
         {
-            return new string[] { "value1", "value2" };
+            // Only process this if header exists
+            IEnumerable<string> headers;
+            if (!Request.Headers.TryGetValues("somiod-discovery", out headers))
+            {
+                return BadRequest("Missing somiod-discovery header");
+            }
+
+            string resType = headers.FirstOrDefault();
+            if (resType == null) {
+                return BadRequest("Invalid somiod-discovery type");
+            }
+            if(resType.ToLower() == "application") 
+            {
+                try
+                {
+                    List<string> paths = new List<string>();
+
+                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    {
+                        conn.Open();
+
+                        string query = @"SELECT [resource-name] FROM application";
+
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                string name = reader["resource-name"].ToString();
+                                paths.Add($"/api/somiod/{name}");
+                            }
+                        }
+                    }
+
+                    return Ok(paths);
+                }
+                catch (Exception ex)
+                {
+                    return InternalServerError(ex);
+                }
+            }
+            else
+            {
+                /*** a minha ideia era aqui chamar os outros gets 
+                 * 
+                 *  por este url serve tb para outras "classes" por exemplo  “somiod-discovery: content-instance”
+                 * 
+
+                 * 
+                 *  se o tipo fosse container chamavamos aqui a containerController.get() 
+                 *  se o tipo fosse content-instance chamavamos aqui o contentInstanteController.get()
+                 *  se fosse subscription chamavamos aqui o subscriptionController.get()
+                 *  tudo separdo por if e elses
+                 * 
+                 ***/
+
+                return InternalServerError();
+            }
         }
+        #endregion
+
 
         #region get
         // Get Application: http://<domain:9876>/api/somiod/app5 - returns app5 data 
         [HttpGet]
         [Route("{resourceName}")]
-        public HttpResponseMessage GetApplication(string resourceName) 
+        public HttpResponseMessage GetApplication(string resourceName)
         {
-            // ns se meter uma condicao para se o resource name for vazio faz sentido, pq isso para um getAll;
-            // ver condicoes do get all
             try
             {
                 using (var conn = new SqlConnection(connectionString))
@@ -82,9 +151,9 @@ namespace ProjetoIs.Controllers
                 return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, "Error on getting the application");
             }
         }
-
         #endregion
 
+        #region post
         [HttpPost]
         [Route("")]
         public IHttpActionResult Post([FromBody] application app)
@@ -127,6 +196,7 @@ namespace ProjetoIs.Controllers
                 return InternalServerError(e);
             }
         }
+        #endregion
 
         // PUT: api/application/5
         public void Put(int id, [FromBody] string value)
