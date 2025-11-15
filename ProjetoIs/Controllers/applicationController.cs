@@ -13,14 +13,6 @@ using static System.Net.Mime.MediaTypeNames;
  * 
  *************/
 
-/*** TO DO
- * 
- * ver o tipo de return que temos de enviar 
- * se e HttpResponseMessage como está no GetApplication
- * ou IHttpActionResult como esta no get e no post
- *
- ***/
-
 namespace ProjetoIs.Controllers
 {
     [RoutePrefix("api/somiod")]
@@ -102,7 +94,7 @@ namespace ProjetoIs.Controllers
         // Get Application: http://<domain:9876>/api/somiod/app5 - returns app5 data 
         [HttpGet]
         [Route("{resourceName}")]
-        public HttpResponseMessage GetApplication(string resourceName)
+        public IHttpActionResult GetApplication(string resourceName)
         {
             try
             {
@@ -110,9 +102,7 @@ namespace ProjetoIs.Controllers
                 {
                     conn.Open();
 
-                    string query = @"SELECT *
-                                     FROM application
-                                     WHERE [resource-name] = @resourceName";
+                    string query = @"SELECT * FROM application WHERE [resource-name] = @resourceName";
 
                     using (var cmd = new SqlCommand(query, conn))
                     {
@@ -134,13 +124,13 @@ namespace ProjetoIs.Controllers
 
                             if (app != null)
                             {
-                                return Request.CreateResponse(HttpStatusCode.OK, app);
+                                return Ok(app);
                                 //var response = Request.CreateResponse(HttpStatusCode.OK, app);
                                 //response.Content = new ObjectContent<application>(app, new System.Net.Http.Formatting.XmlMediaTypeFormatter());
                                 //return response;
                             }
 
-                            return Request.CreateErrorResponse(HttpStatusCode.NotFound, "Application not found");
+                            return NotFound();
                         }
                     }
                 }
@@ -148,7 +138,7 @@ namespace ProjetoIs.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"Error on getting the application: {ex.Message}");
-                return Request.CreateErrorResponse(HttpStatusCode.InternalServerError, "Error on getting the application");
+                return InternalServerError(ex);
             }
         }
         #endregion
@@ -172,9 +162,7 @@ namespace ProjetoIs.Controllers
                 using (SqlConnection conn = new SqlConnection(connectionString))
                 {
                     conn.Open();
-                    string query = @"INSERT INTO application
-                                 ([resource-name], [res-type], [creation-datetime])
-                                 VALUES (@resourceName, @resType, @creationDatetime)";
+                    string query = @"INSERT INTO application ([resource-name], [res-type], [creation-datetime]) VALUES (@resourceName, @resType, @creationDatetime)";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
@@ -198,14 +186,91 @@ namespace ProjetoIs.Controllers
         }
         #endregion
 
-        // PUT: api/application/5
-        public void Put(int id, [FromBody] string value)
+        #region PUT
+        [HttpPut]
+        [Route("{resourceName}")]
+        public IHttpActionResult Put(string resourceName, [FromBody] application app)
         {
+            /***
+             * da forma que esta implementado nem faz muito sentido enviar qualquer dado no body, o res-type nao muda, a data e enviada por uma funcao
+             * mas de qualquer maneira decidi que temos de enviar pelo menos o resouceName
+             ***/
+            if (string.IsNullOrWhiteSpace(resourceName) || app == null || resourceName != app.ResourceName)
+            {
+                return BadRequest("check the the resource name and the new application data");
+            }
+            else
+            {
+                try
+                {
+                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    {
+                        conn.Open();
+
+                        // doesn't make sense to modify other data
+                        string query = @"UPDATE application SET [creation-datetime] = @creationDatetime WHERE [resource-name] = @resourceName";
+
+                        DateTime creation_time = DateTime.UtcNow;
+
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@creationDatetime", creation_time);
+                            cmd.Parameters.AddWithValue("@resourceName", resourceName);
+
+                            int rows = cmd.ExecuteNonQuery();
+                            if (rows == 0)
+                                return NotFound();
+                        }
+                        app.CreationDatetime = creation_time;
+                    }
+                    app.ResType = "application"; // apenas a resposta nao aparecer "res-type": null, porque efetivamente o res-type nao foi alterado, algo apenas visual
+
+                    return Ok(app);
+                }
+                catch (SqlException ex)
+                {
+                    return InternalServerError(ex);
+                }
+            }
         }
 
-        // DELETE: api/application/5
-        public void Delete(int id)
+        #endregion
+
+        #region Delete
+
+        [HttpDelete]
+        [Route("{resourceName}")]
+        public IHttpActionResult Delete(string resourceName)
         {
+            if (string.IsNullOrWhiteSpace(resourceName))
+                return BadRequest("Missing resource name");
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string query = @"DELETE FROM application WHERE [resource-name] = @resourceName";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@resourceName", resourceName);
+
+                        int rows = cmd.ExecuteNonQuery();
+                        if (rows == 0)
+                            return NotFound();
+                    }
+                }
+
+                return Ok($"Application '{resourceName}' deleted successfully.");
+            }
+            catch (SqlException ex)
+            {
+                return InternalServerError(ex);
+            }
         }
+
+        #endregion
     }
 }
