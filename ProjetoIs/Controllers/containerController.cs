@@ -25,7 +25,7 @@ namespace ProjetoIs.Controllers
         {
             return "value";
         }
-
+        /*
         #region post
         [HttpPost]
         [Route("")]
@@ -103,6 +103,7 @@ namespace ProjetoIs.Controllers
             }
         }
         #endregion
+        */
 
         // PUT: api/container/5
         public void Put(int id, [FromBody]string value)
