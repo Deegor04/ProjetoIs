@@ -14,14 +14,44 @@ namespace ProjetoIs.Controllers
     {
         string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIS.Properties.Settings.ConnectionString"].ConnectionString;
 
-        // GET: api/container
-        public IEnumerable<string> Get()
+        #region getAll
+        [HttpGet]
+        [Route("{resourceName}")]
+        public List<String> Get()
         {
-            return new string[] { "value1", "value2" };
+                List<string> pathsApplicacion = new List<string>();
+            try
+            {
+
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string query = @"SELECT [resource-name],[application-resource-name] FROM container";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string container_name = reader["resource-name"].ToString();
+                            string app_name = reader["application-resource-name"].ToString();
+                            pathsApplicacion.Add($"/api/somiod/{app_name}/{container_name}");
+                        }
+                    }
+                }
+
+                return pathsApplicacion;
+            }
+            catch (Exception ex)
+            {
+                pathsApplicacion.Add(ex.ToString());
+                return pathsApplicacion;
+            }
         }
+        #endregion
 
         #region get
-        // Get Application: http://<domain:9876>/api/somiod/app5 - returns app5 data 
         [HttpGet]
         [Route("{resourceName}")]
         public IHttpActionResult GetApplication(string resourceName)

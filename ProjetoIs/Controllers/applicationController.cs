@@ -15,6 +15,12 @@ using static System.Net.Mime.MediaTypeNames;
  * 
  *************/
 
+/*************
+*
+* TO DO - Organizar o codigo, tenho muito codigo repedito entre classes e metodos ( entre alguns if e elses)
+*
+ *************/
+
 namespace ProjetoIs.Controllers
 {
     [RoutePrefix("api/somiod")]
@@ -47,7 +53,7 @@ namespace ProjetoIs.Controllers
             {
                 try
                 {
-                    List<string> paths = new List<string>();
+                    List<string> pathsApplicacion = new List<string>();
 
                     using (SqlConnection conn = new SqlConnection(connectionString))
                     {
@@ -61,12 +67,12 @@ namespace ProjetoIs.Controllers
                             while (reader.Read())
                             {
                                 string name = reader["resource-name"].ToString();
-                                paths.Add($"/api/somiod/{name}");
+                                pathsApplicacion.Add($"/api/somiod/{name}");
                             }
                         }
                     }
 
-                    return Ok(paths);
+                    return Ok(pathsApplicacion);
                 }
                 catch (Exception ex)
                 {
@@ -75,6 +81,13 @@ namespace ProjetoIs.Controllers
             }
             else
             {
+                if (resType.ToLower() == "container")
+                { 
+                    var controller = new containerController();
+                    List<string> pathsContainer = controller.Get();
+                    return Ok(pathsContainer);
+                }
+
                 /*** a minha ideia era aqui chamar os outros gets 
                  * 
                  *  por este url serve tb para outras "classes" por exemplo  “somiod-discovery: content-instance”
@@ -99,59 +112,106 @@ namespace ProjetoIs.Controllers
         [Route("{resourceName}")]
         public IHttpActionResult GetApplication(string resourceName)
         {
-            try
+            IEnumerable<string> headers;
+            if (!Request.Headers.TryGetValues("somiod-discovery", out headers))
             {
-                using (var conn = new SqlConnection(connectionString))
+                try
                 {
-                    conn.Open();
-
-                    string query = @"SELECT * FROM application WHERE [resource-name] = @resourceName";
-
-                    // the left join secures that an application without a container will be returned - se quissesemos dar return as app com o nome dos containers "filhos"
-                    //string query = @"SELECT a.*, c.[resource-name] as container_resource_name FROM [dbo].[application] a LEFT JOIN [dbo].[container] c ON a.[resource-name] = c.[application-resource-name] WHERE a.[resource-name] = @resourceName";
-
-                    using (var cmd = new SqlCommand(query, conn))
+                    using (var conn = new SqlConnection(connectionString))
                     {
-                        cmd.Parameters.AddWithValue("@resourceName", resourceName);
+                        conn.Open();
 
-                        using (var reader = cmd.ExecuteReader())
+                        string query = @"SELECT * FROM application WHERE [resource-name] = @resourceName";
+
+                        // the left join secures that an application without a container will be returned - se quissesemos dar return as app com o nome dos containers "filhos"
+                        //string query = @"SELECT a.*, c.[resource-name] as container_resource_name FROM [dbo].[application] a LEFT JOIN [dbo].[container] c ON a.[resource-name] = c.[application-resource-name] WHERE a.[resource-name] = @resourceName";
+
+                        using (var cmd = new SqlCommand(query, conn))
                         {
-                            application app = null;
-                            //var containers = new List<container>();
+                            cmd.Parameters.AddWithValue("@resourceName", resourceName);
 
-                            if (reader.Read())
+                            using (var reader = cmd.ExecuteReader())
                             {
-                                app = new application
+                                application app = null;
+                                //var containers = new List<container>();
+
+                                if (reader.Read())
                                 {
-                                    ResourceName = (string)reader["resource-name"],
-                                    ResType = (string)reader["res-type"],
-                                    CreationDatetime = (DateTime)reader["creation-datetime"],
-                                    //Containers = new List<Container>()
-                                };
-                                /*if (!reader.IsDBNull(reader.GetOrdinal("container_resource_name")))
-                                {
-                                    var container = new container
+                                    app = new application
                                     {
-                                        ResourceName = (string)reader["container_resource_name"],
+                                        ResourceName = (string)reader["resource-name"],
+                                        ResType = (string)reader["res-type"],
+                                        CreationDatetime = (DateTime)reader["creation-datetime"],
+                                        //Containers = new List<Container>()
                                     };
-                                    containers.Add(container);
-                                }*/
+                                    /*if (!reader.IsDBNull(reader.GetOrdinal("container_resource_name")))
+                                    {
+                                        var container = new container
+                                        {
+                                            ResourceName = (string)reader["container_resource_name"],
+                                        };
+                                        containers.Add(container);
+                                    }*/
+                                }
+
+                                if (app != null)
+                                {
+                                    return Ok(new { app.ResourceName, app.ResType, app.CreationDatetime });
+                                }
+
+                                return NotFound();
                             }
-
-                            if (app != null)
-                            {
-                                return Ok(new{app.ResourceName,app.ResType,app.CreationDatetime});}
-
-                            return NotFound();
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error on getting the application: {ex.Message}");
+                    return InternalServerError(ex);
+                }
             }
-            catch (Exception ex)
+
+            string resType = headers.FirstOrDefault();
+            if (resType == "container")
             {
-                Console.WriteLine($"Error on getting the application: {ex.Message}");
-                return InternalServerError(ex);
+                List<string> pathsApplicacion = new List<string>();
+                try
+                {
+
+                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    {
+                        conn.Open();
+
+                        string query = @"SELECT [resource-name],[application-resource-name] FROM container WHERE [application-resource-name] = @application_resource_name";
+
+
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@application_resource_name", resourceName);
+                            using (SqlDataReader reader = cmd.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    string container_name = reader["resource-name"].ToString();
+                                    string app_name = reader["application-resource-name"].ToString();
+                                    pathsApplicacion.Add($"/api/somiod/{app_name}/{container_name}");
+                                }
+                            }
+                        }
+                    }
+
+                    return Ok(pathsApplicacion);
+                }
+                catch (Exception ex)
+                {
+                    return InternalServerError(ex);
+                }
             }
+            else // TO DO - add if (resType == "content-instance")
+            {
+                return InternalServerError();
+            }
+            
         }
         #endregion
 
