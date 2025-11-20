@@ -1,12 +1,13 @@
-﻿using ProjetoIs.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Configuration;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Web.Http;
+using ProjetoIs.Models;
 using static System.Net.Mime.MediaTypeNames;
 /*************
  * 
@@ -92,7 +93,6 @@ namespace ProjetoIs.Controllers
         }
         #endregion
 
-
         #region get
         // Get Application: http://<domain:9876>/api/somiod/app5 - returns app5 data 
         [HttpGet]
@@ -107,13 +107,17 @@ namespace ProjetoIs.Controllers
 
                     string query = @"SELECT * FROM application WHERE [resource-name] = @resourceName";
 
+                    // the left join secures that an application without a container will be returned - se quissesemos dar return as app com o nome dos containers "filhos"
+                    //string query = @"SELECT a.*, c.[resource-name] as container_resource_name FROM [dbo].[application] a LEFT JOIN [dbo].[container] c ON a.[resource-name] = c.[application-resource-name] WHERE a.[resource-name] = @resourceName";
+
                     using (var cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@resourceName", resourceName);
 
                         using (var reader = cmd.ExecuteReader())
                         {
-                             application app = null;
+                            application app = null;
+                            //var containers = new List<container>();
 
                             if (reader.Read())
                             {
@@ -121,17 +125,22 @@ namespace ProjetoIs.Controllers
                                 {
                                     ResourceName = (string)reader["resource-name"],
                                     ResType = (string)reader["res-type"],
-                                    CreationDatetime = (DateTime)reader["creation-datetime"]
+                                    CreationDatetime = (DateTime)reader["creation-datetime"],
+                                    //Containers = new List<Container>()
                                 };
+                                /*if (!reader.IsDBNull(reader.GetOrdinal("container_resource_name")))
+                                {
+                                    var container = new container
+                                    {
+                                        ResourceName = (string)reader["container_resource_name"],
+                                    };
+                                    containers.Add(container);
+                                }*/
                             }
 
                             if (app != null)
                             {
-                                return Ok(app);
-                                //var response = Request.CreateResponse(HttpStatusCode.OK, app);
-                                //response.Content = new ObjectContent<application>(app, new System.Net.Http.Formatting.XmlMediaTypeFormatter());
-                                //return response;
-                            }
+                                return Ok(new{app.ResourceName,app.ResType,app.CreationDatetime});}
 
                             return NotFound();
                         }
@@ -157,26 +166,60 @@ namespace ProjetoIs.Controllers
                 return BadRequest("Missing required field: resource-name");
             }
 
-            app.ResType = "application"; // aqui
-            app.CreationDatetime = DateTime.UtcNow; // aqui: perguntar ao professor se o o utilizador e susposto enviar tudo
+
+            app.ResType = "application"; 
+            app.CreationDatetime = DateTime.UtcNow;
 
             try
             {
                 using (SqlConnection conn = new SqlConnection(connectionString))
                 {
                     conn.Open();
-                    string query = @"INSERT INTO application ([resource-name], [res-type], [creation-datetime]) VALUES (@resourceName, @resType, @creationDatetime)";
 
-                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    // 1) Verificar se a aplicação existe
+                    using (SqlCommand cmd = new SqlCommand(
+                        "SELECT COUNT(*) FROM application WHERE [resource-name] = @app",
+                        conn))
                     {
-                        cmd.Parameters.AddWithValue("@resourceName", app.ResourceName);
-                        cmd.Parameters.AddWithValue("@resType", app.ResType);
-                        cmd.Parameters.AddWithValue("@creationDatetime", app.CreationDatetime);
-                        cmd.Connection = conn;
-                        int rows = cmd.ExecuteNonQuery();
-                        if (rows <= 0)
-                            return InternalServerError();
-                    }
+                        cmd.Parameters.AddWithValue("@app", app.ResourceName);
+                        int exists = (int)cmd.ExecuteScalar();
+
+                        if (exists == 0) // aplicacao nao existe
+                        {
+                            string query = @"INSERT INTO application ([resource-name], [res-type], [creation-datetime]) VALUES (@resourceName, @resType, @creationDatetime)";
+
+                            using (SqlCommand command = new SqlCommand(query, conn))
+                            {
+                                command.Parameters.AddWithValue("@resourceName", app.ResourceName);
+                                command.Parameters.AddWithValue("@resType", app.ResType);
+                                command.Parameters.AddWithValue("@creationDatetime", app.CreationDatetime);
+                                command.Connection = conn;
+                                int rows = command.ExecuteNonQuery();
+                                if (rows <= 0)
+                                    return InternalServerError();
+                            }
+                        }
+                        else // aplicacao ja existe -> temos de criar uma com um nome unico
+                        {
+                            string uniqueName = app.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
+
+                            string query = @"INSERT INTO application ([resource-name], [res-type], [creation-datetime]) VALUES (@resourceName, @resType, @creationDatetime)";
+
+                            using (SqlCommand command = new SqlCommand(query, conn))
+                            {
+                                command.Parameters.AddWithValue("@resourceName", uniqueName); // cada data e unica, por isso o nome vai ser sempre unico
+                                command.Parameters.AddWithValue("@resType", app.ResType);
+                                command.Parameters.AddWithValue("@creationDatetime", app.CreationDatetime);
+                                command.Connection = conn;
+                                int rows = command.ExecuteNonQuery();
+                                if (rows <= 0)
+                                    return InternalServerError();
+                                app.ResourceName = uniqueName;
+
+                            }
+                        }
+                            
+                    } 
                 }
 
                 // return 201 Created + full resource
@@ -187,10 +230,12 @@ namespace ProjetoIs.Controllers
                 return InternalServerError(e);
             }
         }
+        #endregion
 
+        #region post container
         [HttpPost]
         [Route("{applicationName}")]
-        public IHttpActionResult PostContainer(string applicationName, [FromBody] container container)
+        public IHttpActionResult Post(string applicationName, [FromBody] container container)
         {
             if (string.IsNullOrWhiteSpace(applicationName) ||
                 container == null ||
@@ -209,31 +254,32 @@ namespace ProjetoIs.Controllers
                 {
                     conn.Open();
 
-                    // verifica se a aplicação existe
+                    // 1) Verificar se a aplicação existe
                     using (SqlCommand cmd = new SqlCommand(
-                        "SELECT COUNT(*) FROM application WHERE [resource-name] = @app", conn))
+                        "SELECT COUNT(*) FROM application WHERE [resource-name] = @app",
+                        conn))
                     {
                         cmd.Parameters.AddWithValue("@app", applicationName);
                         int exists = (int)cmd.ExecuteScalar();
+
                         if (exists == 0)
-                            return NotFound();
+                            return NotFound(); // aplicação não existe
                     }
 
-                    // verifica se já existe container com esse nome
+                    // 2) Verificar se container já existe (nome é único)
                     using (SqlCommand cmd = new SqlCommand(
-                        "SELECT COUNT(*) FROM container WHERE [resource-name] = @c", conn))
+                        "SELECT COUNT(*) FROM container WHERE [resource-name] = @c",
+                        conn))
                     {
                         cmd.Parameters.AddWithValue("@c", container.ResourceName);
                         int exists = (int)cmd.ExecuteScalar();
+
                         if (exists > 0)
-                            return Conflict();
+                            return Conflict(); // nome duplicado
                     }
 
-                    // insere container
-                    string insertQuery = @"
-                    INSERT INTO container
-                    ([resource-name], [res-type], [creation-datetime], [application-resource-name])
-                    VALUES (@resourceName, @resType, @creationDatetime, @applicationName)";
+                    // 3) Inserir container
+                    string insertQuery = @"INSERT INTO container ([resource-name], [res-type], [creation-datetime], [application-resource-name]) VALUES (@resourceName, @resType, @creationDatetime, @applicationName)";
 
                     using (SqlCommand cmd = new SqlCommand(insertQuery, conn))
                     {
@@ -248,6 +294,7 @@ namespace ProjetoIs.Controllers
                     }
                 }
 
+                // Return 201 Created + full resource
                 return Created(
                     $"/api/somiod/{applicationName}/{container.ResourceName}",
                     container
