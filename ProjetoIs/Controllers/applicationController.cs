@@ -210,11 +210,11 @@ namespace ProjetoIs.Controllers
                                 command.Parameters.AddWithValue("@resourceName", uniqueName); // cada data e unica, por isso o nome vai ser sempre unico
                                 command.Parameters.AddWithValue("@resType", app.ResType);
                                 command.Parameters.AddWithValue("@creationDatetime", app.CreationDatetime);
+                                app.ResourceName = uniqueName;
                                 command.Connection = conn;
                                 int rows = command.ExecuteNonQuery();
                                 if (rows <= 0)
                                     return InternalServerError();
-                                app.ResourceName = uniqueName;
 
                             }
                         }
@@ -275,22 +275,42 @@ namespace ProjetoIs.Controllers
                         int exists = (int)cmd.ExecuteScalar();
 
                         if (exists > 0)
-                            return Conflict(); // nome duplicado
-                    }
+                        {
+                            string uniqueName = container.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
 
-                    // 3) Inserir container
-                    string insertQuery = @"INSERT INTO container ([resource-name], [res-type], [creation-datetime], [application-resource-name]) VALUES (@resourceName, @resType, @creationDatetime, @applicationName)";
+                            string insertQuery = @"INSERT INTO container ([resource-name], [res-type], [creation-datetime], [application-resource-name]) VALUES (@resourceName, @resType, @creationDatetime, @applicationName)";
 
-                    using (SqlCommand cmd = new SqlCommand(insertQuery, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@resourceName", container.ResourceName);
-                        cmd.Parameters.AddWithValue("@resType", container.ResType);
-                        cmd.Parameters.AddWithValue("@creationDatetime", container.CreationDatetime);
-                        cmd.Parameters.AddWithValue("@applicationName", container.ApplicationResourceName);
+                            using (SqlCommand command = new SqlCommand(insertQuery, conn))
+                            {
+                                command.Parameters.AddWithValue("@resourceName", uniqueName);
+                                command.Parameters.AddWithValue("@resType", container.ResType);
+                                command.Parameters.AddWithValue("@creationDatetime", container.CreationDatetime);
+                                command.Parameters.AddWithValue("@applicationName", container.ApplicationResourceName);
+                                container.ResourceName = uniqueName;
 
-                        int rows = cmd.ExecuteNonQuery();
-                        if (rows == 0)
-                            return InternalServerError();
+                                int rows = command.ExecuteNonQuery();
+                                if (rows == 0)
+                                    return InternalServerError();
+                            }
+                        }
+                        else
+                        {
+                            // 3) Inserir container
+                            string insertQuery = @"INSERT INTO container ([resource-name], [res-type], [creation-datetime], [application-resource-name]) VALUES (@resourceName, @resType, @creationDatetime, @applicationName)";
+
+                            using (SqlCommand command = new SqlCommand(insertQuery, conn))
+                            {
+                                command.Parameters.AddWithValue("@resourceName", container.ResourceName);
+                                command.Parameters.AddWithValue("@resType", container.ResType);
+                                command.Parameters.AddWithValue("@creationDatetime", container.CreationDatetime);
+                                command.Parameters.AddWithValue("@applicationName", container.ApplicationResourceName);
+
+                                int rows = command.ExecuteNonQuery();
+                                if (rows == 0)
+                                    return InternalServerError();
+                            }
+                        }
+                            
                     }
                 }
 
