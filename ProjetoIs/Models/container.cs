@@ -12,6 +12,8 @@ namespace ProjetoIs.Models
     public class container : common
     {
         [ForeignKey("application-resource-name")]
+        [JsonProperty("application-resource-name")]
+        [Column("application-resource-name")]
         public virtual string ApplicationResourceName { get; set; }
     }
 }

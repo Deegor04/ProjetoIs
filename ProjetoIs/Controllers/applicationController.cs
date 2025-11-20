@@ -335,7 +335,7 @@ namespace ProjetoIs.Controllers
         {
             /***
              * da forma que esta implementado nem faz muito sentido enviar qualquer dado no body, o res-type nao muda, a data e enviada por uma funcao
-             * mas de qualquer maneira decidi que temos de enviar pelo menos o resouceName
+             * mas de qualquer maneira decidi que temos de enviar pelo menos o resouceName, embora a unica coisa alterada seja a creation-date
              ***/
             if (string.IsNullOrWhiteSpace(resourceName) || app == null || resourceName != app.ResourceName)
             {
@@ -365,7 +365,7 @@ namespace ProjetoIs.Controllers
                         }
                         app.CreationDatetime = creation_time;
                     }
-                    app.ResType = "application"; // apenas a resposta nao aparecer "res-type": null, porque efetivamente o res-type nao foi alterado, algo apenas visual
+                    app.ResType = "application"; // apenas para na resposta nao aparecer "res-type": null, porque efetivamente o res-type nao foi alterado, algo apenas visual
 
                     return Ok(app);
                 }
