@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -15,5 +16,9 @@ namespace ProjetoIs.Models
         [JsonProperty("application-resource-name")]
         [Column("application-resource-name")]
         public virtual string ApplicationResourceName { get; set; }
+
+        public virtual List<content_instance> Content_Instance_List { get; set; } = new List<content_instance>();
+
+        public virtual List<subscription> subscription_list { get; set; } = new List<subscription>(); 
     }
 }
