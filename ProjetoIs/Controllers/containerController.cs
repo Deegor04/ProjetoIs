@@ -101,11 +101,101 @@ namespace ProjetoIs.Controllers
             }
         }
         #endregion
+        /***
+         * TO DO - quando fazemos o post enviamos o "content-type" e o "content"
+         ***/
+        #region post content-instance 
+        [HttpPost]
+        [Route("{containerName}")] 
+        public IHttpActionResult Post(string containerName, [FromBody] content_instance cont_instance)
+        {
+            if (string.IsNullOrWhiteSpace(containerName) || cont_instance == null || string.IsNullOrWhiteSpace(cont_instance.ResourceName))
+            {
+                return BadRequest("Missing required field: resource-name or invalid container data");
+            }
 
-        #region post content-instance
+            cont_instance.ResType = "cont_instance";
+            cont_instance.CreationDatetime = DateTime.UtcNow;
+            cont_instance.containerResourceName = containerName;
 
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    // 1) Verificar se a container existe
+                    using (SqlCommand cmd = new SqlCommand(
+                        "SELECT COUNT(*) FROM container WHERE [resource-name] = @container",
+                        conn))
+                    {
+                        cmd.Parameters.AddWithValue("@container", containerName);
+                        int exists = (int)cmd.ExecuteScalar();
+
+                        if (exists == 0)
+                            return NotFound(); // container não existe
+                    }
+
+                    // 2) Verificar se content-instance ja existe (nome e unico)
+                    using (SqlCommand cmd = new SqlCommand(
+                        "SELECT COUNT(*) FROM [content-instance] WHERE [resource-name] = @c",
+                        conn))
+                    {
+                        cmd.Parameters.AddWithValue("@c", cont_instance.ResourceName);
+                        int exists = (int)cmd.ExecuteScalar();
+
+                        if (exists > 0)
+                        {
+                            string uniqueName = cont_instance.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
+
+                            string insertQuery = @"INSERT INTO [cont_instance] ([resource-name], [res-type], [creation-datetime], [container-resource-name]) VALUES (@resourceName, @resType, @creationDatetime, @containerName)";
+
+                            using (SqlCommand command = new SqlCommand(insertQuery, conn))
+                            {
+                                command.Parameters.AddWithValue("@resourceName", uniqueName);
+                                command.Parameters.AddWithValue("@resType", cont_instance.ResType);
+                                command.Parameters.AddWithValue("@creationDatetime", cont_instance.CreationDatetime);
+                                command.Parameters.AddWithValue("@applicationName", cont_instance.containerResourceName);
+                                cont_instance.ResourceName = uniqueName;
+
+                                int rows = command.ExecuteNonQuery();
+                                if (rows == 0)
+                                    return InternalServerError();
+                            }
+                        }
+                        else
+                        {
+                            // 3) Inserir cont_instance
+                            string insertQuery = @"INSERT INTO [cont_instance] ([resource-name], [res-type], [creation-datetime], [container-resource-name]) VALUES (@resourceName, @resType, @creationDatetime, @containerName)";
+
+                            using (SqlCommand command = new SqlCommand(insertQuery, conn))
+                            {
+                                command.Parameters.AddWithValue("@resourceName", cont_instance.ResourceName);
+                                command.Parameters.AddWithValue("@resType", cont_instance.ResType);
+                                command.Parameters.AddWithValue("@creationDatetime", cont_instance.CreationDatetime);
+                                command.Parameters.AddWithValue("@applicationName", cont_instance.containerResourceName);
+
+                                int rows = command.ExecuteNonQuery();
+                                if (rows == 0)
+                                    return InternalServerError();
+                            }
+                        }
+
+                    }
+                }
+
+                // Return 201 Created + full resource
+                return Created(
+                    $"/api/somiod/{containerName}/{cont_instance.ResourceName}",
+                    cont_instance
+                );
+            }
+            catch (SqlException ex)
+            {
+                return InternalServerError(ex);
+            }
+        }
         #endregion
-
 
         #region PUT
         [HttpPut]
