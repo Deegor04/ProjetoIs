@@ -9,22 +9,62 @@ using System.Net;
 using System.Net.Http;
 using System.Web.Http;
 
-
 namespace ProjetoIs.Controllers
 {
-    [RoutePrefix("api/somiod")]
+    // /api/somiod/{applicationName}/{containerName}/...
+    [RoutePrefix("api/somiod/{applicationName}/{containerName}")]
     public class contentInstanceController : ApiController
     {
         private readonly string connectionString =
-            ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
+            ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"]
+                              .ConnectionString;
 
+        
+        
+        public List<string> Get()
+        {
+            var pathsApplicacion = new List<string>();
 
-        //FAZER GETALL AQUI
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
 
-        //Fazer GET
+                    string query = @"
+                        SELECT  ci.[resource-name]            AS ci_name,
+                                ci.[container-resource-name] AS cont_name,
+                                c.[application-resource-name] AS app_name
+                        FROM [content-instance] ci
+                        JOIN container c
+                          ON ci.[container-resource-name] = c.[resource-name];";
+
+                    using (var cmd = new SqlCommand(query, conn))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string ci = reader["ci_name"].ToString();
+                            string cont = reader["cont_name"].ToString();
+                            string app = reader["app_name"].ToString();
+
+                            pathsApplicacion.Add($"/api/somiod/{app}/{cont}/{ci}");
+                        }
+                    }
+                }
+
+                return pathsApplicacion;
+            }
+            catch (Exception ex)
+            {
+                pathsApplicacion.Add(ex.ToString());
+                return pathsApplicacion;
+            }
+        }
+
         [HttpGet]
-        [Route("{appName}/{containerName}/{ciName}")]
-        public IHttpActionResult Get(string appName, string containerName, string ciName)
+        [Route("{ciName}")]
+        public IHttpActionResult Get(string applicationName, string containerName, string ciName)
         {
             try
             {
@@ -32,8 +72,11 @@ namespace ProjetoIs.Controllers
                 {
                     conn.Open();
 
-                    string query = @"SELECT * FROM [content-instance] WHERE [resource-name] = @name AND [container-resource-name] = @container";
-                        
+                    string query = @"
+                        SELECT * 
+                        FROM [content-instance] 
+                        WHERE [resource-name] = @name 
+                          AND [container-resource-name] = @container";
 
                     using (var cmd = new SqlCommand(query, conn))
                     {
@@ -65,14 +108,10 @@ namespace ProjetoIs.Controllers
                 return InternalServerError(ex);
             }
         }
-       
 
-       
-
-        
         [HttpDelete]
-        [Route("{appName}/{containerName}/{ciName}")]
-        public IHttpActionResult Delete(string appName, string containerName, string ciName)
+        [Route("{ciName}")]
+        public IHttpActionResult Delete(string applicationName, string containerName, string ciName)
         {
             if (string.IsNullOrWhiteSpace(ciName))
                 return BadRequest("Missing content-instance name");
@@ -83,9 +122,12 @@ namespace ProjetoIs.Controllers
                 {
                     conn.Open();
 
-                    string deleteQuery = @" DELETE FROM [content-instance] WHERE [resource-name] = @name AND [container-resource-name] = @container";
-                       
-                    using (SqlCommand cmd = new SqlCommand(deleteQuery, conn))
+                    string deleteQuery = @"
+                        DELETE FROM [content-instance] 
+                        WHERE [resource-name] = @name 
+                          AND [container-resource-name] = @container";
+
+                    using (var cmd = new SqlCommand(deleteQuery, conn))
                     {
                         cmd.Parameters.AddWithValue("@name", ciName);
                         cmd.Parameters.AddWithValue("@container", containerName);

@@ -55,54 +55,101 @@ namespace ProjetoIs.Controllers
         #region get
         [HttpGet]
         [Route("{containerName}")]
-        public IHttpActionResult GetContainer( string containerName)
+public IHttpActionResult GetContainer(string applicationName, string containerName)
+{
+    
+    IEnumerable<string> headers;
+    if (!Request.Headers.TryGetValues("somiod-discovery", out headers))
+    {
+        
+        try
         {
-            try
+            using (var conn = new SqlConnection(connectionString))
             {
-                using (var conn = new SqlConnection(connectionString))
+                conn.Open();
+
+                string query = @"SELECT * 
+                                 FROM container 
+                                 WHERE [resource-name] = @resourceName";
+
+                using (var cmd = new SqlCommand(query, conn))
                 {
-                    conn.Open();
+                    cmd.Parameters.AddWithValue("@resourceName", containerName);
 
-                    string query = @"SELECT * FROM container WHERE [resource-name] = @resourceName";
-
-
-                    using (var cmd = new SqlCommand(query, conn))
+                    using (var reader = cmd.ExecuteReader())
                     {
-                        cmd.Parameters.AddWithValue("@resourceName", containerName);
-                        
+                        container containerGet = null;
 
-                        using (var reader = cmd.ExecuteReader())
+                        if (reader.Read())
                         {
-                            container containerGet = null;
-                            
-
-                            if (reader.Read())
+                            containerGet = new container
                             {
-                                containerGet = new container
-                                {
-                                    ResourceName = (string)reader["resource-name"],
-                                    ResType = (string)reader["res-type"],
-                                    CreationDatetime = (DateTime)reader["creation-datetime"],
-                                    ApplicationResourceName = (string)reader["application-resource-name"]
-                                };
-                            }
+                                ResourceName           = (string)reader["resource-name"],
+                                ResType                = (string)reader["res-type"],
+                                CreationDatetime       = (DateTime)reader["creation-datetime"],
+                                ApplicationResourceName = (string)reader["application-resource-name"]
+                            };
+                        }
 
-                            if (containerGet != null)
-                            {
-                                return Ok(new { containerGet });
-                            }
+                        if (containerGet != null)
+                            return Ok(containerGet);
 
-                            return NotFound();
+                        return NotFound();
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            return InternalServerError(ex);
+        }
+    }
+
+    
+    string resType = headers.FirstOrDefault()?.ToLowerInvariant();
+    if (resType == "content-instance")
+    {
+        
+        var pathsCi = new List<string>();
+
+        try
+        {
+            using (var conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+
+                string query = @"
+                    SELECT [resource-name] 
+                    FROM [content-instance]
+                    WHERE [container-resource-name] = @container";
+
+                using (var cmd = new SqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@container", containerName);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string ci = reader["resource-name"].ToString();
+                            pathsCi.Add($"/api/somiod/{applicationName}/{containerName}/{ci}");
                         }
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error on getting the application: {ex.Message}");
-                return InternalServerError(ex);
-            }
+
+            return Ok(pathsCi);
         }
+        catch (SqlException ex)
+        {
+            return InternalServerError(ex);
+        }
+    }
+
+    // header existe mas não é um tipo que tratamos
+    return BadRequest("Unknown somiod-discovery type");
+}
+
         #endregion
 
         #region post content-instance
