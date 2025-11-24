@@ -15,9 +15,6 @@ namespace ProjetoIs.Controllers
         string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
 
         #region getAll
-        //Aqui estava a causar conflito com o outro Get na application. Este vai buscar todos os containers, independentemente da app.
-        //Este busca todos os containers que existem na BD.
-      
         public List<String> Get()
         {
                 List<string> pathsApplicacion = new List<string>();
@@ -51,190 +48,115 @@ namespace ProjetoIs.Controllers
             }
         }
         #endregion
-        
+
         #region get
         [HttpGet]
-        [Route("{containerName}")]
-public IHttpActionResult GetContainer(string applicationName, string containerName)
-{
-    
-    IEnumerable<string> headers;
-    if (!Request.Headers.TryGetValues("somiod-discovery", out headers))
-    {
-        
-        try
+        [Route("{resourceName}")]
+        public IHttpActionResult GetContainer(string applicationName,string resourceName)
         {
-            using (var conn = new SqlConnection(connectionString))
+            IEnumerable<string> headers;
+            if (!Request.Headers.TryGetValues("somiod-discovery", out headers))
             {
-                conn.Open();
-
-                string query = @"SELECT * 
-                                 FROM container 
-                                 WHERE [resource-name] = @resourceName";
-
-                using (var cmd = new SqlCommand(query, conn))
+                try
                 {
-                    cmd.Parameters.AddWithValue("@resourceName", containerName);
-
-                    using (var reader = cmd.ExecuteReader())
+                    using (var conn = new SqlConnection(connectionString))
                     {
-                        container containerGet = null;
+                        conn.Open();
 
-                        if (reader.Read())
+                        string query = @"SELECT * FROM container WHERE [resource-name] = @resourceName";
+
+                        using (var cmd = new SqlCommand(query, conn))
                         {
-                            containerGet = new container
+                            cmd.Parameters.AddWithValue("@resourceName", resourceName);
+
+                            using (var reader = cmd.ExecuteReader())
                             {
-                                ResourceName           = (string)reader["resource-name"],
-                                ResType                = (string)reader["res-type"],
-                                CreationDatetime       = (DateTime)reader["creation-datetime"],
-                                ApplicationResourceName = (string)reader["application-resource-name"]
-                            };
+                                container containerGet = null;
+
+
+                                if (reader.Read())
+                                {
+                                    containerGet = new container
+                                    {
+                                        ResourceName = (string)reader["resource-name"],
+                                        ResType = (string)reader["res-type"],
+                                        CreationDatetime = (DateTime)reader["creation-datetime"],
+                                        ApplicationResourceName = (string)reader["application-resource-name"]
+                                    };
+                                }
+
+                                if (containerGet != null)
+                                {
+                                    return Ok(new { containerGet.ResourceName, containerGet.ResType, containerGet.CreationDatetime, containerGet.ApplicationResourceName, });
+                                }
+
+                                return NotFound();
+                            }
                         }
-
-                        if (containerGet != null)
-                            return Ok(containerGet);
-
-                        return NotFound();
                     }
                 }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error on getting the application: {ex.Message}");
+                    return InternalServerError(ex);
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            return InternalServerError(ex);
-        }
-    }
-
-    
-    string resType = headers.FirstOrDefault()?.ToLowerInvariant();
-    if (resType == "content-instance")
-    {
-        
-        var pathsCi = new List<string>();
-
-        try
-        {
-            using (var conn = new SqlConnection(connectionString))
+            string resType = headers.FirstOrDefault();
+            if (resType == "content-instance")
             {
-                conn.Open();
 
-                string query = @"
+                var pathsCi = new List<string>();
+
+                try
+                {
+                    using (var conn = new SqlConnection(connectionString))
+                    {
+                        conn.Open();
+
+                        string query = @"
                     SELECT [resource-name] 
                     FROM [content-instance]
                     WHERE [container-resource-name] = @container";
 
-                using (var cmd = new SqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@container", containerName);
-
-                    using (var reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
+                        using (var cmd = new SqlCommand(query, conn))
                         {
-                            string ci = reader["resource-name"].ToString();
-                            pathsCi.Add($"/api/somiod/{applicationName}/{containerName}/{ci}");
+                            cmd.Parameters.AddWithValue("@container", resourceName);
+
+                            using (var reader = cmd.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    string ci = reader["resource-name"].ToString();
+                                    pathsCi.Add($"/api/somiod/{applicationName}/{resourceName}/{ci}");
+                                }
+                            }
                         }
                     }
+
+                    return Ok(pathsCi);
+                }
+                catch (SqlException ex)
+                {
+                    return InternalServerError(ex);
                 }
             }
-
-            return Ok(pathsCi);
+            return BadRequest("Unknown somiod-discovery type");
         }
-        catch (SqlException ex)
-        {
-            return InternalServerError(ex);
-        }
-    }
-
-    // header existe mas não é um tipo que tratamos
-    return BadRequest("Unknown somiod-discovery type");
-}
-
         #endregion
-
-        #region post content-instance
-
+        
+        #region post content-instance 
         [HttpPost]
-        [Route("{containerName}")]
-        public IHttpActionResult PostContentInstance( string containerName, [FromBody] content_instance ci)
+        [Route("{containerName}")] 
+        public IHttpActionResult Post(string containerName, [FromBody] content_instance cont_instance)
         {
-            if (ci == null || string.IsNullOrWhiteSpace(containerName))
-                return BadRequest("Invalid content-instance data");
-
-            ci.ResType = "content-instance";
-            ci.CreationDatetime = DateTime.UtcNow;
-            ci.ContainerResourceName = containerName;
-
-            try
+            if (string.IsNullOrWhiteSpace(containerName) || cont_instance == null || string.IsNullOrWhiteSpace(cont_instance.ResourceName))
             {
-                using (var conn = new SqlConnection(connectionString))
-                {
-                    conn.Open();
-
-                    // 1) Verificar se o container existe e pertence à app
-                    using (var checkContainerCmd = new SqlCommand(
-                               @"SELECT COUNT(*) 
-                         FROM container 
-                         WHERE [resource-name] = @cont 
-                           ", conn))
-                    {
-                        checkContainerCmd.Parameters.AddWithValue("@cont", containerName);
-                        
-                        int contExists = (int)checkContainerCmd.ExecuteScalar();
-                        if (contExists == 0)
-                            return NotFound();  // container não existe / não é dessa app
-                    }
-
-                    // 2) Garantir que o resource-name é único
-                    if (string.IsNullOrWhiteSpace(ci.ResourceName))
-                    {
-                        ci.ResourceName = ci.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
-                    }
-                    else
-                    {
-                        using (var checkNameCmd = new SqlCommand(
-                                   "SELECT COUNT(*) FROM [content-instance] WHERE [resource-name] = @name",
-                                   conn))
-                        {
-                            checkNameCmd.Parameters.AddWithValue("@name", ci.ResourceName);
-                            int nameExists = (int)checkNameCmd.ExecuteScalar();
-                            if (nameExists > 0)
-                                ci.ResourceName = ci.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
-                        }
-                    }
-
-                    // 3) Inserir a content-instance completa
-                    string insertQuery = @"
-                INSERT INTO [content-instance]
-                    ([resource-name], [creation-datetime], [container-resource-name],
-                     [res-type], [content-type], [content])    
-                VALUES
-                    (@resourceName, @creationDatetime, @containerResourceName,
-                     @resType, @contentType, @content)";
-
-                    using (var cmd = new SqlCommand(insertQuery, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@resourceName", ci.ResourceName);
-                        cmd.Parameters.AddWithValue("@creationDatetime", ci.CreationDatetime);
-                        cmd.Parameters.AddWithValue("@containerResourceName", ci.ContainerResourceName);
-                        cmd.Parameters.AddWithValue("@resType", ci.ResType);
-                        cmd.Parameters.AddWithValue("@contentType", (object)ci.ContentType ?? DBNull.Value);
-                        cmd.Parameters.AddWithValue("@content", (object)ci.Content ?? DBNull.Value);
-
-                        int rows = cmd.ExecuteNonQuery();
-                        if (rows == 0)
-                            return InternalServerError();
-                    }
-                }
-
-                var location = $"/api/somiod/{containerName}/{ci.ResourceName}";
-                return Created(location, ci);
+                return BadRequest("Missing required field: resource-name or invalid container data");
             }
-            catch (SqlException ex)
-            {
-                return InternalServerError(ex);
-            }
-        }
+
+            cont_instance.ResType = "content-instance";
+            cont_instance.CreationDatetime = DateTime.UtcNow;
+            cont_instance.containerResourceName = containerName;
 
             try
             {
@@ -266,14 +188,16 @@ public IHttpActionResult GetContainer(string applicationName, string containerNa
                         {
                             string uniqueName = cont_instance.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
 
-                            string insertQuery = @"INSERT INTO [cont_instance] ([resource-name], [res-type], [creation-datetime], [container-resource-name]) VALUES (@resourceName, @resType, @creationDatetime, @containerName)";
+                            string insertQuery = @"INSERT INTO [content-instance] ([resource-name], [res-type], [creation-datetime], [container-resource-name], [content-type], [content]) VALUES (@resourceName, @resType, @creationDatetime, @containerName, @contentType, @content)";
 
                             using (SqlCommand command = new SqlCommand(insertQuery, conn))
                             {
                                 command.Parameters.AddWithValue("@resourceName", uniqueName);
                                 command.Parameters.AddWithValue("@resType", cont_instance.ResType);
                                 command.Parameters.AddWithValue("@creationDatetime", cont_instance.CreationDatetime);
-                                command.Parameters.AddWithValue("@applicationName", cont_instance.containerResourceName);
+                                command.Parameters.AddWithValue("@containerName", cont_instance.containerResourceName);
+                                command.Parameters.AddWithValue("@contentType", cont_instance.ContentType);
+                                command.Parameters.AddWithValue("@content", cont_instance.Content);
                                 cont_instance.ResourceName = uniqueName;
 
                                 int rows = command.ExecuteNonQuery();
@@ -284,14 +208,16 @@ public IHttpActionResult GetContainer(string applicationName, string containerNa
                         else
                         {
                             // 3) Inserir cont_instance
-                            string insertQuery = @"INSERT INTO [cont_instance] ([resource-name], [res-type], [creation-datetime], [container-resource-name]) VALUES (@resourceName, @resType, @creationDatetime, @containerName)";
+                            string insertQuery = @"INSERT INTO [content-instance] ([resource-name], [res-type], [creation-datetime], [container-resource-name], [content-type], [content]) VALUES (@resourceName, @resType, @creationDatetime, @containerName, @contentType, @content)";
 
                             using (SqlCommand command = new SqlCommand(insertQuery, conn))
                             {
                                 command.Parameters.AddWithValue("@resourceName", cont_instance.ResourceName);
                                 command.Parameters.AddWithValue("@resType", cont_instance.ResType);
                                 command.Parameters.AddWithValue("@creationDatetime", cont_instance.CreationDatetime);
-                                command.Parameters.AddWithValue("@applicationName", cont_instance.containerResourceName);
+                                command.Parameters.AddWithValue("@containerName", cont_instance.containerResourceName);
+                                command.Parameters.AddWithValue("@contentType", cont_instance.ContentType);
+                                command.Parameters.AddWithValue("@content", cont_instance.Content);
 
                                 int rows = command.ExecuteNonQuery();
                                 if (rows == 0)
@@ -318,49 +244,48 @@ public IHttpActionResult GetContainer(string applicationName, string containerNa
         #region PUT
         [HttpPut]
         [Route("{resourceName}")]
-        //Perguntar se esta bem assim
-        public IHttpActionResult Put(string applicationName, string resourceName, [FromBody] container containerPut)
+        public IHttpActionResult Put(string resourceName, [FromBody] container containerPut) // o put apenas muda a app ao qual o container pertence
         {
-            if (string.IsNullOrWhiteSpace(resourceName) || containerPut == null)
+            
+            if (string.IsNullOrWhiteSpace(resourceName) || containerPut == null )
             {
-                return BadRequest("check the resource name and the new container data");
+                return BadRequest("check the the resource name and the new container data");
             }
-
-            try
+            else
             {
-                using (SqlConnection conn = new SqlConnection(connectionString))
+                try
                 {
-                    conn.Open();
-
-                    string query = @"
-                UPDATE container 
-                SET [application-resource-name] = @application_resource_name 
-                WHERE [resource-name] = @resourceName
-                  AND [application-resource-name] = @applicationName";
-
-                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    using (SqlConnection conn = new SqlConnection(connectionString))
                     {
-                        cmd.Parameters.AddWithValue("@application_resource_name", containerPut.ApplicationResourceName);
-                        cmd.Parameters.AddWithValue("@resourceName", resourceName);
-                        cmd.Parameters.AddWithValue("@applicationName", applicationName);
+                        conn.Open();
 
-                        int rows = cmd.ExecuteNonQuery();
-                        if (rows == 0)
-                            return NotFound();
+                        string query = @"UPDATE container SET [application-resource-name] = @application_resource_name WHERE [resource-name] = @resourceName";
+
+                        
+
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@application_resource_name", containerPut.ApplicationResourceName);
+                            cmd.Parameters.AddWithValue("@resourceName", resourceName);
+
+                            int rows = cmd.ExecuteNonQuery();
+                            if (rows == 0)
+                                return NotFound();
+                        }
                     }
+                    // apenas para na resposta nao aparecer estes campos a  null, porque efetivamente nao foram alterados, apenas algo visual
+                    containerPut.ResType = "container"; 
+                    containerPut.ResourceName = resourceName;
+
+                    return Ok(containerPut);
                 }
-
-                // só para que a resposta venha “bonita”
-                containerPut.ResType = "container";
-                containerPut.ResourceName = resourceName;
-
-                return Ok(containerPut);
-            }
-            catch (SqlException ex)
-            {
-                return InternalServerError(ex);
+                catch (SqlException ex)
+                {
+                    return InternalServerError(ex);
+                }
             }
         }
+
         #endregion
 
         #region Delete

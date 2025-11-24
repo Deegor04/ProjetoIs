@@ -13,6 +13,6 @@ namespace ProjetoIs.Models
 {
     public class application : common
     {
-        public virtual List<container> Containers { get; set; } = new List<container>();
+        //public virtual List<container> Containers { get; set; } = new List<container>();
     }
 }

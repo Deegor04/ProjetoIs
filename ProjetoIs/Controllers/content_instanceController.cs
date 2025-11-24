@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Web.Http;
+using ProjetoIs.Models;
 
 namespace ProjetoIs.Controllers
 {
@@ -12,31 +14,135 @@ namespace ProjetoIs.Controllers
     public class content_instanceController : ApiController
     {
         string connectionString = ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
-        // GET: api/content_instance
-        public IEnumerable<string> Get()
+
+        public List<string> Get()
         {
-            return new string[] { "value1", "value2" };
+            var pathsContent_instance = new List<string>();
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string query = @"
+                        SELECT  ci.[resource-name]            AS ci_name,
+                                ci.[container-resource-name] AS cont_name,
+                                c.[application-resource-name] AS app_name
+                        FROM [content-instance] ci
+                        JOIN container c
+                          ON ci.[container-resource-name] = c.[resource-name];";
+
+                    using (var cmd = new SqlCommand(query, conn))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string ci = reader["ci_name"].ToString();
+                            string cont = reader["cont_name"].ToString();
+                            string app = reader["app_name"].ToString();
+
+                            pathsContent_instance.Add($"/api/somiod/{app}/{cont}/{ci}");
+                        }
+                    }
+                }
+
+                return pathsContent_instance;
+            }
+            catch (Exception ex)
+            {
+                pathsContent_instance.Add(ex.ToString());
+                return pathsContent_instance;
+            }
         }
 
-        // GET: api/content_instance/5
-        public string Get(int id)
+
+        [HttpGet]
+        [Route("{ciName}")]
+        public IHttpActionResult Get(string applicationName, string containerName, string ciName)
         {
-            return "value";
+            try
+            {
+                using (var conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string query = @"
+                        SELECT * 
+                        FROM [content-instance] 
+                        WHERE [resource-name] = @name 
+                          AND [container-resource-name] = @container";
+
+                    using (var cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@name", ciName);
+                        cmd.Parameters.AddWithValue("@container", containerName);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                                return NotFound();
+
+                            var ci = new content_instance
+                            {
+                                ResourceName = (string)reader["resource-name"],
+                                ResType = (string)reader["res-type"],
+                                CreationDatetime = (DateTime)reader["creation-datetime"],
+                                containerResourceName = (string)reader["container-resource-name"],
+                                ContentType = reader["content-type"] as string,
+                                Content = reader["content"] as string
+                            };
+
+                            return Ok(ci);
+                        }
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                return InternalServerError(ex);
+            }
         }
 
-        // POST: api/content_instance
-        public void Post([FromBody]string value)
-        {
-        }
 
-        // PUT: api/content_instance/5
-        public void Put(int id, [FromBody]string value)
-        {
-        }
 
-        // DELETE: api/content_instance/5
-        public void Delete(int id)
+
+
+        [HttpDelete]
+        [Route("{ciName}")]
+        public IHttpActionResult Delete(string applicationName, string containerName, string ciName)
         {
+            if (string.IsNullOrWhiteSpace(ciName))
+                return BadRequest("Missing content-instance name");
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string deleteQuery = @"
+                        DELETE FROM [content-instance] 
+                        WHERE [resource-name] = @name 
+                          AND [container-resource-name] = @container";
+
+                    using (var cmd = new SqlCommand(deleteQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@name", ciName);
+                        cmd.Parameters.AddWithValue("@container", containerName);
+
+                        int rows = cmd.ExecuteNonQuery();
+                        if (rows == 0)
+                            return NotFound();
+                    }
+                }
+
+                return Ok($"Content Instance '{ciName}' deleted successfully.");
+            }
+            catch (SqlException ex)
+            {
+                return InternalServerError(ex);
+            }
         }
     }
 }

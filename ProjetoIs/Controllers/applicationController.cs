@@ -82,10 +82,33 @@ namespace ProjetoIs.Controllers
             }
             else if (resType == "container")
             {
-                
-                var controller = new containerController();
-                List<string> pathsContainer = controller.Get();
-                return Ok(pathsContainer);
+                if (resType.ToLower() == "container")
+                { 
+                    var controller = new containerController();
+                    List<string> pathsContainer = controller.Get();
+                    return Ok(pathsContainer);
+                }
+                else if (resType == "content-instance")
+                {
+
+                    var controller = new content_instanceController();
+                    List<string> pathsCi = controller.Get();
+                    return Ok(pathsCi);
+                }
+                /*** a minha ideia era aqui chamar os outros gets 
+                 * 
+                 *  por este url serve tb para outras "classes" por exemplo  “somiod-discovery: content-instance”
+                 * 
+
+                 * 
+                 *  se o tipo fosse container chamavamos aqui a containerController.get() 
+                 *  se o tipo fosse content-instance chamavamos aqui o contentInstanteController.get()
+                 *  se fosse subscription chamavamos aqui o subscriptionController.get()
+                 *  tudo separdo por if e elses
+                 * 
+                 ***/
+
+                return InternalServerError();
             }
             else if (resType == "content-instance")
             {
@@ -216,7 +239,6 @@ namespace ProjetoIs.Controllers
             }
             else if (resType == "content-instance")
             {
-               
                 var pathsCi = new List<string>();
 
                 using (SqlConnection conn = new SqlConnection(connectionString))
@@ -250,10 +272,11 @@ namespace ProjetoIs.Controllers
 
                 return Ok(pathsCi);
             }
-            else
+            else 
             {
                 return BadRequest("Unknown somiod-discovery type");
-            }
+            }        
+            
         }
     
 
