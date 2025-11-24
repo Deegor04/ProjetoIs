@@ -36,6 +36,7 @@ namespace ProjetoIs.Controllers
         // GET: “somiod-discovery: application” http://<domain:9876>/api/somiod - returns all applications
         [HttpGet]
         [Route("")]
+
         public IHttpActionResult Get()
         {
             // Only process this if header exists
@@ -79,31 +80,37 @@ namespace ProjetoIs.Controllers
                     return InternalServerError(ex);
                 }
             }
-            else
+            else if (resType == "container")
             {
-                if (resType.ToLower() == "container")
-                { 
-                    var controller = new containerController();
-                    List<string> pathsContainer = controller.Get();
-                    return Ok(pathsContainer);
-                }
-
-                /*** a minha ideia era aqui chamar os outros gets 
-                 * 
-                 *  por este url serve tb para outras "classes" por exemplo  “somiod-discovery: content-instance”
-                 * 
-
-                 * 
-                 *  se o tipo fosse container chamavamos aqui a containerController.get() 
-                 *  se o tipo fosse content-instance chamavamos aqui o contentInstanteController.get()
-                 *  se fosse subscription chamavamos aqui o subscriptionController.get()
-                 *  tudo separdo por if e elses
-                 * 
-                 ***/
-
-                return InternalServerError();
+                
+                var controller = new containerController();
+                List<string> pathsContainer = controller.Get();
+                return Ok(pathsContainer);
             }
-        }
+            else if (resType == "content-instance")
+            {
+                
+                var controller = new contentInstanceController();
+                List<string> pathsCi = controller.Get();
+                return Ok(pathsCi);
+            }
+
+            /*** a minha ideia era aqui chamar os outros gets 
+             * 
+             *  por este url serve tb para outras "classes" por exemplo  “somiod-discovery: content-instance”
+             * 
+
+             * 
+             *  se o tipo fosse container chamavamos aqui a containerController.get() 
+             *  se o tipo fosse content-instance chamavamos aqui o contentInstanteController.get()
+             *  se fosse subscription chamavamos aqui o subscriptionController.get()
+             *  tudo separdo por if e elses
+             * 
+             ***/
+
+                  return InternalServerError();
+            }
+        
         #endregion
 
         #region get
@@ -207,12 +214,50 @@ namespace ProjetoIs.Controllers
                     return InternalServerError(ex);
                 }
             }
-            else // TO DO - add if (resType == "content-instance")
+            else if (resType == "content-instance")
             {
-                return InternalServerError();
+               
+                var pathsCi = new List<string>();
+
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string query = @"
+                    SELECT  ci.[resource-name]            AS ci_name,
+                            ci.[container-resource-name] AS cont_name
+                    FROM [content-instance] ci
+                    JOIN container c
+                      ON ci.[container-resource-name] = c.[resource-name]
+                    WHERE c.[application-resource-name] = @app;";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@app", resourceName);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                string ci = reader["ci_name"].ToString();
+                                string cont = reader["cont_name"].ToString();
+
+                                pathsCi.Add($"/api/somiod/{resourceName}/{cont}/{ci}");
+                            }
+                        }
+                    }
+                }
+
+                return Ok(pathsCi);
             }
-            
+            else
+            {
+                return BadRequest("Unknown somiod-discovery type");
+            }
         }
+    
+
+
         #endregion
 
         #region post
