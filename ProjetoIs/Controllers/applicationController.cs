@@ -87,7 +87,13 @@ namespace ProjetoIs.Controllers
                     List<string> pathsContainer = controller.Get();
                     return Ok(pathsContainer);
                 }
+                else if (resType == "content-instance")
+                {
 
+                    var controller = new content_instanceController();
+                    List<string> pathsCi = controller.Get();
+                    return Ok(pathsCi);
+                }
                 /*** a minha ideia era aqui chamar os outros gets 
                  * 
                  *  por este url serve tb para outras "classes" por exemplo  “somiod-discovery: content-instance”
@@ -207,10 +213,46 @@ namespace ProjetoIs.Controllers
                     return InternalServerError(ex);
                 }
             }
-            else // TO DO - add if (resType == "content-instance")
+            else if (resType == "content-instance")
             {
-                return InternalServerError();
+
+                var pathsCi = new List<string>();
+
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string query = @"
+                    SELECT  ci.[resource-name]            AS ci_name,
+                            ci.[container-resource-name] AS cont_name
+                    FROM [content-instance] ci
+                    JOIN container c
+                      ON ci.[container-resource-name] = c.[resource-name]
+                    WHERE c.[application-resource-name] = @app;";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@app", resourceName);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                string ci = reader["ci_name"].ToString();
+                                string cont = reader["cont_name"].ToString();
+
+                                pathsCi.Add($"/api/somiod/{resourceName}/{cont}/{ci}");
+                            }
+                        }
+                    }
+                }
+
+                return Ok(pathsCi);
             }
+            else 
+            {
+                return BadRequest("Unknown somiod-discovery type");
+            }        
             
         }
         #endregion
