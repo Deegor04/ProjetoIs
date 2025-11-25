@@ -15,6 +15,7 @@ namespace ProjetoIs.Models
  *************/
     public class subscription : common // o resto das coisas esta na class "common"
     {
+        public int Id { get; set; }
 
         [ForeignKey("container-resource-name")]
         [JsonProperty("container-resource-name")]
@@ -23,10 +24,15 @@ namespace ProjetoIs.Models
 
         [JsonProperty("evt")]
         [Column("evt")]
-        public int evt { get; set; }
+        public int Evt { get; set; }
 
         [JsonProperty("endpoint")]
         [Column("endpoint")]
-        public string endpoint { get; set; }
+        public string Endpoint { get; set; }
+
+        public string ResType { get; set; }
+        public DateTime CreationDateTime { get; set; }
+
+        public int ContainerId { get; set; }
     }
 }
