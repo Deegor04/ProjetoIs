@@ -14,7 +14,7 @@ namespace ProjetoIs.Controllers
     [RoutePrefix("api/somiod/")]
     public class subscriptionController : ApiController
     {
-        string connectionString = ProjetoIs.Properties.Settings.Default.ProjetoIsConnectionString;
+        string connectionString = Properties.Settings.Default.ConnectionString;
 
         [HttpGet]
         [Route("{applicationName}/{containerName}/subs/{subName}")]
@@ -39,7 +39,12 @@ namespace ProjetoIs.Controllers
                 AND c.[resource-name] = @ContainerName
                 AND s.[resource-name] = @SubName";
 
-            var conn = new SqlConn
+            var conn = new SqlConnection(connectionString);
+            var cmd = new SqlCommand(connDb, conn);
+
+            cmd.Parameters.AddWithValue("@AppName", appName);
+            cmd.Parameters.AddWithValue("@ContainerName", containerName);
+            cmd.Parameters.AddWithValue("@SubName", subName);
         }
 
 
