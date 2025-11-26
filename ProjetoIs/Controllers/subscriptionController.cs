@@ -6,16 +6,18 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Web.Http;
+using System.Data.SqlClient;
+using System.Configuration;
 
 namespace ProjetoIs.Controllers
 {
-    [RoutePrefix("api/somiod/{applicationName}/{containerName}/subs/{subName}")]
+    [RoutePrefix("api/somiod/")]
     public class subscriptionController : ApiController
     {
-        string connectionString = ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
+        string connectionString = ProjetoIs.Properties.Settings.Default.ProjetoIsConnectionString;
 
         [HttpGet]
-        [Route("{appName}/{containerName}/subs/{subName}")]
+        [Route("{applicationName}/{containerName}/subs/{subName}")]
         public IHttpActionResult GetSubscription(string appName, string containerName, string subName)
         {
             var subscription = GetSubscriptionFromDb(appName, containerName, subName);
@@ -27,9 +29,17 @@ namespace ProjetoIs.Controllers
             return Ok(subscription);
         }
 
-        public subscription GetSubscriptionFromDb(global::System.String appName, global::System.String containerName, global::System.String subName)
+        public subscription GetSubscriptionFromDb(string appName, string containerName, string subName)
         {
-            const string connDb = @"";
+            const string connDb = @"SELECT s.[resource-name], s.[creation-datetime], s.[container-resource-name],
+                s.[res-type], s.[evt], s.[endpoint]
+                FROM [subscription] s JOIN [container] c ON c.[resource-name] = s.[container-resource-name]
+                JOIN [application] a ON a.[resource-name] = c.[application-resource-name]
+                WHERE a.[resource-name] = @AppName
+                AND c.[resource-name] = @ContainerName
+                AND s.[resource-name] = @SubName";
+
+            var conn = new SqlConn
         }
 
 
