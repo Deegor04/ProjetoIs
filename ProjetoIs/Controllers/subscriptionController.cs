@@ -16,6 +16,71 @@ namespace ProjetoIs.Controllers
     {
         string connectionString = Properties.Settings.Default.ConnectionString;
 
+        [HttpPost]
+        [Route("api/somiod/{appName}/{containerName}/subs")]
+        public IHttpActionResult Post(string appName, string containerName, [FromBody] Subscription value)
+        {
+            if (value == null)
+                return BadRequest("There is no body at the moment.");
+            
+
+            if (string.IsNullOrWhiteSpace(value.ResourceName))
+                value.ResourceName = "sub-" + Guid.NewGuid().ToString();
+            
+
+            if (value.Evt != 1 && value.Evt != 2)
+                return BadRequest("evt inválido (usa 1 ou 2).");
+
+            if (string.IsNullOrWhiteSpace(value.Endpoint))
+                return BadRequest("endpoint é obrigatório.");
+
+            value.ResType = "subscription";
+            value.ContainerResourceName = containerName;
+            value.CreationDatetime = DateTime.UtcNow;
+
+            string sqlCommand = @"INSERT INTO [subscription]
+                    ([resource-name], [creation-datetime], [container-resource-name], [res-type], [evt], [endpoint])
+                    VALUES (@ResourceName, @CreationDatetime, @ContainerResourceName, @ResType, @Evt, @Endpoint)";
+
+            var conn = new SqlConnection(connectionString);
+            var cmd = new SqlCommand(sqlCommand, conn);
+
+            try
+            {
+                using (conn)
+                {
+
+                    conn.Open();
+                    
+                    using (cmd)
+                    {
+                        cmd.Parameters.AddWithValue("@ResourceName", value.ResourceName);
+                        cmd.Parameters.AddWithValue("@CreationDatetime", value.CreationDatetime);
+                        cmd.Parameters.AddWithValue("@ContainerResourceName", value.ContainerResourceName);
+                        cmd.Parameters.AddWithValue("@ResType", value.ResType);
+                        cmd.Parameters.AddWithValue("@Evt", value.Evt);
+                        cmd.Parameters.AddWithValue("@Endpoint", value.Endpoint);
+
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected > 0)
+                        {
+                            return Ok(value);
+                        }
+                        else
+                        {
+                            return InternalServerError(new Exception("Failed to create subscription."));
+                        }
+                    }
+                }
+            }
+            catch ()
+            {
+
+                throw;
+            }
+        }
+
         [HttpGet]
         [Route("{applicationName}/{containerName}/subs/{subName}")]
         public IHttpActionResult GetSubscription(string appName, string containerName, string subName)
