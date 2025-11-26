@@ -107,32 +107,9 @@ namespace ProjetoIs.Controllers
                  *  tudo separdo por if e elses
                  * 
                  ***/
-
-                return InternalServerError();
             }
-            else if (resType == "content-instance")
-            {
-                
-                var controller = new contentInstanceController();
-                List<string> pathsCi = controller.Get();
-                return Ok(pathsCi);
-            }
-
-            /*** a minha ideia era aqui chamar os outros gets 
-             * 
-             *  por este url serve tb para outras "classes" por exemplo  “somiod-discovery: content-instance”
-             * 
-
-             * 
-             *  se o tipo fosse container chamavamos aqui a containerController.get() 
-             *  se o tipo fosse content-instance chamavamos aqui o contentInstanteController.get()
-             *  se fosse subscription chamavamos aqui o subscriptionController.get()
-             *  tudo separdo por if e elses
-             * 
-             ***/
-
-                  return InternalServerError();
-            }
+            return InternalServerError();
+        }
         
         #endregion
 

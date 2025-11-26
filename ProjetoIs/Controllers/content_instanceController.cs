@@ -88,7 +88,7 @@ namespace ProjetoIs.Controllers
                                 ResourceName = (string)reader["resource-name"],
                                 ResType = (string)reader["res-type"],
                                 CreationDatetime = (DateTime)reader["creation-datetime"],
-                                containerResourceName = (string)reader["container-resource-name"],
+                                ContainerResourceName = (string)reader["container-resource-name"],
                                 ContentType = reader["content-type"] as string,
                                 Content = reader["content"] as string
                             };

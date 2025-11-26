@@ -156,7 +156,7 @@ namespace ProjetoIs.Controllers
 
             cont_instance.ResType = "content-instance";
             cont_instance.CreationDatetime = DateTime.UtcNow;
-            cont_instance.containerResourceName = containerName;
+            cont_instance.ContainerResourceName = containerName;
 
             try
             {
@@ -195,7 +195,7 @@ namespace ProjetoIs.Controllers
                                 command.Parameters.AddWithValue("@resourceName", uniqueName);
                                 command.Parameters.AddWithValue("@resType", cont_instance.ResType);
                                 command.Parameters.AddWithValue("@creationDatetime", cont_instance.CreationDatetime);
-                                command.Parameters.AddWithValue("@containerName", cont_instance.containerResourceName);
+                                command.Parameters.AddWithValue("@containerName", cont_instance.ContainerResourceName);
                                 command.Parameters.AddWithValue("@contentType", cont_instance.ContentType);
                                 command.Parameters.AddWithValue("@content", cont_instance.Content);
                                 cont_instance.ResourceName = uniqueName;
@@ -215,7 +215,7 @@ namespace ProjetoIs.Controllers
                                 command.Parameters.AddWithValue("@resourceName", cont_instance.ResourceName);
                                 command.Parameters.AddWithValue("@resType", cont_instance.ResType);
                                 command.Parameters.AddWithValue("@creationDatetime", cont_instance.CreationDatetime);
-                                command.Parameters.AddWithValue("@containerName", cont_instance.containerResourceName);
+                                command.Parameters.AddWithValue("@containerName", cont_instance.ContainerResourceName);
                                 command.Parameters.AddWithValue("@contentType", cont_instance.ContentType);
                                 command.Parameters.AddWithValue("@content", cont_instance.Content);
 

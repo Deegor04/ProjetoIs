@@ -128,7 +128,7 @@
     <Compile Include="Models\application.cs" />
     <Compile Include="Models\common.cs" />
     <Compile Include="Models\container.cs" />
-    <Compile Include="Models\content_instance.cs" />
+    <Compile Include="Models\content-instance.cs" />
     <Compile Include="Models\subscription.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
