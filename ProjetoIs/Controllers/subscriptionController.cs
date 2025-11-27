@@ -14,10 +14,10 @@ namespace ProjetoIs.Controllers
     [RoutePrefix("api/somiod/")]
     public class subscriptionController : ApiController
     {
-        string connectionString = Properties.Settings.Default.ConnectionString;
+        string connectionString = Properties.Settings.Default.ConnStr;
 
         [HttpPost]
-        [Route("api/somiod/{appName}/{containerName}/subs")]
+        [Route("{appName}/{containerName}/subs")]
         public IHttpActionResult Post(string appName, string containerName, [FromBody] Subscription value)
         {
             if (value == null)
@@ -74,10 +74,9 @@ namespace ProjetoIs.Controllers
                     }
                 }
             }
-            catch ()
+            catch (Exception ex)
             {
-
-                throw;
+                return InternalServerError(ex);
             }
         }
 

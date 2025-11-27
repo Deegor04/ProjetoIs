@@ -28,9 +28,9 @@ namespace ProjetoIs.Properties {
         [global::System.Configuration.SpecialSettingAttribute(global::System.Configuration.SpecialSetting.ConnectionString)]
         [global::System.Configuration.DefaultSettingValueAttribute("Data Source=(LocalDB)\\MSSQLLocalDB;AttachDbFilename=|DataDirectory|\\database.mdf;" +
             "Integrated Security=True;Connect Timeout=30")]
-        public string ConnectionString {
+        public string ConnStr {
             get {
-                return ((string)(this["ConnectionString"]));
+                return ((string)(this["ConnStr"]));
             }
         }
     }
