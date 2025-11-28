@@ -14,6 +14,7 @@ namespace ProjetoIs.Models
    
     public class content_instance : common
     {
+        [ForeignKey("container-resource-name")]
         [JsonProperty("container-resource-name")]
         [Column("container-resource-name")]
         public string ContainerResourceName { get; set; }

@@ -51,23 +51,23 @@ namespace ProjetoIs.Controllers
 
         #region get
         [HttpGet]
-        [Route("{resourceName}")]
-        public IHttpActionResult GetContainer(string applicationName,string resourceName)
+        [Route("{containerName}")]
+        public IHttpActionResult GetContainer(string applicationName,string containerName)
         {
             IEnumerable<string> headers;
-            if (!Request.Headers.TryGetValues("somiod-discovery", out headers))
+            if (!Request.Headers.TryGetValues("somiod-discovery", out headers)) // verificar se somiod-discovery esta presente
             {
-                try
+                try // nao esta presente -> dar return a um container
                 {
                     using (var conn = new SqlConnection(connectionString))
                     {
                         conn.Open();
 
-                        string query = @"SELECT * FROM container WHERE [resource-name] = @resourceName";
+                        string query = @"SELECT * FROM container WHERE [resource-name] = @containerName";
 
                         using (var cmd = new SqlCommand(query, conn))
                         {
-                            cmd.Parameters.AddWithValue("@resourceName", resourceName);
+                            cmd.Parameters.AddWithValue("@containerName", containerName);
 
                             using (var reader = cmd.ExecuteReader())
                             {
@@ -101,46 +101,52 @@ namespace ProjetoIs.Controllers
                     return InternalServerError(ex);
                 }
             }
-            string resType = headers.FirstOrDefault();
-            if (resType == "content-instance")
-            {
-
-                var pathsCi = new List<string>();
-
-                try
+            else {
+                string resType = headers.FirstOrDefault();
+                if (resType == "content-instance")
                 {
-                    using (var conn = new SqlConnection(connectionString))
-                    {
-                        conn.Open();
 
-                        string query = @"
+                    var pathsCi = new List<string>();
+
+                    try
+                    {
+                        using (var conn = new SqlConnection(connectionString))
+                        {
+                            conn.Open();
+
+                            string query = @"
                     SELECT [resource-name] 
                     FROM [content-instance]
                     WHERE [container-resource-name] = @container";
 
-                        using (var cmd = new SqlCommand(query, conn))
-                        {
-                            cmd.Parameters.AddWithValue("@container", resourceName);
-
-                            using (var reader = cmd.ExecuteReader())
+                            using (var cmd = new SqlCommand(query, conn))
                             {
-                                while (reader.Read())
+                                cmd.Parameters.AddWithValue("@container", containerName);
+
+                                using (var reader = cmd.ExecuteReader())
                                 {
-                                    string ci = reader["resource-name"].ToString();
-                                    pathsCi.Add($"/api/somiod/{applicationName}/{resourceName}/{ci}");
+                                    while (reader.Read())
+                                    {
+                                        string ci = reader["resource-name"].ToString();
+                                        pathsCi.Add($"/api/somiod/{applicationName}/{containerName}/{ci}");
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    return Ok(pathsCi);
+                        return Ok(pathsCi);
+                    }
+                    /*
+                     if (resType == "content-instance"){
+                    }
+                     */
+                    catch (SqlException ex)
+                    {
+                        return InternalServerError(ex);
+                    }
                 }
-                catch (SqlException ex)
-                {
-                    return InternalServerError(ex);
-                }
-            }
-            return BadRequest("Unknown somiod-discovery type");
+                return BadRequest("Unknown somiod-discovery type");
+            }    
         }
         #endregion
         
@@ -156,7 +162,7 @@ namespace ProjetoIs.Controllers
 
             cont_instance.ResType = "content-instance";
             cont_instance.CreationDatetime = DateTime.UtcNow;
-            cont_instance.containerResourceName = containerName;
+            cont_instance.ContainerResourceName = containerName;
 
             try
             {
@@ -195,7 +201,7 @@ namespace ProjetoIs.Controllers
                                 command.Parameters.AddWithValue("@resourceName", uniqueName);
                                 command.Parameters.AddWithValue("@resType", cont_instance.ResType);
                                 command.Parameters.AddWithValue("@creationDatetime", cont_instance.CreationDatetime);
-                                command.Parameters.AddWithValue("@containerName", cont_instance.containerResourceName);
+                                command.Parameters.AddWithValue("@containerName", cont_instance.ContainerResourceName);
                                 command.Parameters.AddWithValue("@contentType", cont_instance.ContentType);
                                 command.Parameters.AddWithValue("@content", cont_instance.Content);
                                 cont_instance.ResourceName = uniqueName;
@@ -215,7 +221,7 @@ namespace ProjetoIs.Controllers
                                 command.Parameters.AddWithValue("@resourceName", cont_instance.ResourceName);
                                 command.Parameters.AddWithValue("@resType", cont_instance.ResType);
                                 command.Parameters.AddWithValue("@creationDatetime", cont_instance.CreationDatetime);
-                                command.Parameters.AddWithValue("@containerName", cont_instance.containerResourceName);
+                                command.Parameters.AddWithValue("@containerName", cont_instance.ContainerResourceName);
                                 command.Parameters.AddWithValue("@contentType", cont_instance.ContentType);
                                 command.Parameters.AddWithValue("@content", cont_instance.Content);
 
@@ -291,10 +297,10 @@ namespace ProjetoIs.Controllers
         #region Delete
 
         [HttpDelete]
-        [Route("{resourceName}")]
-        public IHttpActionResult Delete(string resourceName)
+        [Route("{containerName}")]
+        public IHttpActionResult Delete(string containerName)
         {
-            if (string.IsNullOrWhiteSpace(resourceName))
+            if (string.IsNullOrWhiteSpace(containerName))
                 return BadRequest("Missing resource name");
 
             try
@@ -303,11 +309,11 @@ namespace ProjetoIs.Controllers
                 {
                     conn.Open();
 
-                    string query = @"DELETE FROM container WHERE [resource-name] = @resourceName";
+                    string query = @"DELETE FROM container WHERE [resource-name] = @containerName";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
-                        cmd.Parameters.AddWithValue("@resourceName", resourceName);
+                        cmd.Parameters.AddWithValue("@containerName", containerName);
 
                         int rows = cmd.ExecuteNonQuery();
                         if (rows == 0)
@@ -315,7 +321,7 @@ namespace ProjetoIs.Controllers
                     }
                 }
 
-                return Ok($"Container '{resourceName}' deleted successfully.");
+                return Ok($"Container '{containerName}' deleted successfully.");
             }
             catch (SqlException ex)
             {
