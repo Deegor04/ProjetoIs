@@ -10,13 +10,13 @@ using System.Data.SqlClient;
 
 namespace ProjetoIs.Controllers
 {
-    [RoutePrefix("api/somiod/{applicationName}/{containerName}/sub")]
+    [RoutePrefix("api/somiod")]
     public class subscriptionController : ApiController
     {
         string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
 
         [HttpPost]
-        [Route("{appName}/{containerName}/subs")]
+        [Route("{appName}/{containerName}/sub")]
         public IHttpActionResult Post(string appName, string containerName, [FromBody] subscription value)
         {
             if (value == null)
@@ -43,9 +43,10 @@ namespace ProjetoIs.Controllers
                 WHERE a.[resource-name] = @AppName AND c.[resource-name] = @ContainerName";
 
             string sqlCheckDuplicate = @"SELECT COUNT(*)
-                FROM [container] c JOIN [application] a
-                ON a.[resource-name] = c.[application-resource-name]
-                WHERE a.[resource-name] = @AppName AND c.[resource-name] = @ContainerName";
+                FROM [subscription]
+                WHERE [resource-name] = @SubName
+                AND [container-resource-name] = @ContainerName";
+
 
             string sqlCommand = @"INSERT INTO [subscription]
                     ([resource-name], [creation-datetime], [container-resource-name], [res-type], [evt], [endpoint])
@@ -81,9 +82,8 @@ namespace ProjetoIs.Controllers
                     // 2) Verificar se já existe subscription com este nome
                     using (cmdCheckDuplicate)
                     {
-                        cmdCheckDuplicate.Parameters.AddWithValue("@AppName", appName);
-                        cmdCheckDuplicate.Parameters.AddWithValue("@ContainerName", containerName);
                         cmdCheckDuplicate.Parameters.AddWithValue("@SubName", value.ResourceName);
+                        cmdCheckDuplicate.Parameters.AddWithValue("@ContainerName", containerName);
                         
                         int subCount = (int)cmdCheckDuplicate.ExecuteScalar();
 
