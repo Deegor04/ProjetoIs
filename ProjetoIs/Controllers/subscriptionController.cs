@@ -7,11 +7,10 @@ using System.Net;
 using System.Net.Http;
 using System.Web.Http;
 using System.Data.SqlClient;
-using System.Configuration;
 
 namespace ProjetoIs.Controllers
 {
-    [RoutePrefix("api/somiod/")]
+    [RoutePrefix("api/somiod/{applicationName}/{containerName}/sub")]
     public class subscriptionController : ApiController
     {
         string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
@@ -52,7 +51,7 @@ namespace ProjetoIs.Controllers
                     ([resource-name], [creation-datetime], [container-resource-name], [res-type], [evt], [endpoint])
                     VALUES (@ResourceName, @CreationDatetime, @ContainerResourceName, @ResType, @Evt, @Endpoint)";
 
-            SqlConnection conn = new SqlConnection(connectionString)
+            SqlConnection conn = new SqlConnection(connectionString);
 
             var cmd = new SqlCommand(sqlCommand, conn);
             var cmdCheckParent = new SqlCommand(sqlCheckParent, conn);
@@ -79,7 +78,7 @@ namespace ProjetoIs.Controllers
                         }
                     }
 
-                    // 2) Verificar se já existe subscription com este nome (opcional)
+                    // 2) Verificar se já existe subscription com este nome
                     using (cmdCheckDuplicate)
                     {
                         cmdCheckDuplicate.Parameters.AddWithValue("@AppName", appName);
