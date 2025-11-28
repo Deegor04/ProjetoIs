@@ -112,8 +112,8 @@ namespace ProjetoIs.Controllers
             }
             else if (resType == "content-instance")
             {
-                
-                var controller = new contentInstanceController();
+
+                var controller = new content_instanceController();
                 List<string> pathsCi = controller.Get();
                 return Ok(pathsCi);
             }

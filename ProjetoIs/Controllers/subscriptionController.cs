@@ -14,11 +14,11 @@ namespace ProjetoIs.Controllers
     [RoutePrefix("api/somiod/")]
     public class subscriptionController : ApiController
     {
-        string connectionString = Properties.Settings.Default.ConnStr;
+        string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
 
         [HttpPost]
         [Route("{appName}/{containerName}/subs")]
-        public IHttpActionResult Post(string appName, string containerName, [FromBody] Subscription value)
+        public IHttpActionResult Post(string appName, string containerName, [FromBody] subscription value)
         {
             if (value == null)
                 return BadRequest("There is no body at the moment.");
@@ -38,12 +38,25 @@ namespace ProjetoIs.Controllers
             value.ContainerResourceName = containerName;
             value.CreationDatetime = DateTime.UtcNow;
 
+            string sqlCheckParent = @"SELECT COUNT(*)
+                FROM [container] c JOIN [application] a
+                ON a.[resource-name] = c.[application-resource-name]
+                WHERE a.[resource-name] = @AppName AND c.[resource-name] = @ContainerName";
+
+            string sqlCheckDuplicate = @"SELECT COUNT(*)
+                FROM [container] c JOIN [application] a
+                ON a.[resource-name] = c.[application-resource-name]
+                WHERE a.[resource-name] = @AppName AND c.[resource-name] = @ContainerName";
+
             string sqlCommand = @"INSERT INTO [subscription]
                     ([resource-name], [creation-datetime], [container-resource-name], [res-type], [evt], [endpoint])
                     VALUES (@ResourceName, @CreationDatetime, @ContainerResourceName, @ResType, @Evt, @Endpoint)";
 
-            var conn = new SqlConnection(connectionString);
+            SqlConnection conn = new SqlConnection(connectionString)
+
             var cmd = new SqlCommand(sqlCommand, conn);
+            var cmdCheckParent = new SqlCommand(sqlCheckParent, conn);
+            var cmdCheckDuplicate = new SqlCommand(sqlCheckDuplicate, conn);
 
             try
             {
@@ -51,7 +64,37 @@ namespace ProjetoIs.Controllers
                 {
 
                     conn.Open();
-                    
+
+                    // 1) Verificar se app + container existem
+                    using (cmdCheckParent)
+                    {
+                        cmdCheckParent.Parameters.AddWithValue("@AppName", appName);
+                        cmdCheckParent.Parameters.AddWithValue("@ContainerName", containerName);
+
+                        int containerCount = (int)cmdCheckParent.ExecuteScalar();
+
+                        if (containerCount == 0)
+                        {
+                            return BadRequest("Application or Container does not exist.");
+                        }
+                    }
+
+                    // 2) Verificar se já existe subscription com este nome (opcional)
+                    using (cmdCheckDuplicate)
+                    {
+                        cmdCheckDuplicate.Parameters.AddWithValue("@AppName", appName);
+                        cmdCheckDuplicate.Parameters.AddWithValue("@ContainerName", containerName);
+                        cmdCheckDuplicate.Parameters.AddWithValue("@SubName", value.ResourceName);
+                        
+                        int subCount = (int)cmdCheckDuplicate.ExecuteScalar();
+
+                        if (subCount > 0)
+                        {
+                            return BadRequest("Subscription with this name already exists.");
+                        }
+                    }
+
+                    // 3) Inserir a nova subscription
                     using (cmd)
                     {
                         cmd.Parameters.AddWithValue("@ResourceName", value.ResourceName);
@@ -80,6 +123,9 @@ namespace ProjetoIs.Controllers
             }
         }
 
+
+
+        /*
         [HttpGet]
         [Route("{applicationName}/{containerName}/subs/{subName}")]
         public IHttpActionResult GetSubscription(string appName, string containerName, string subName)
@@ -105,12 +151,24 @@ namespace ProjetoIs.Controllers
 
             var conn = new SqlConnection(connectionString);
             var cmd = new SqlCommand(connDb, conn);
+            var reader = cmd.ExecuteReader();
 
-            cmd.Parameters.AddWithValue("@AppName", appName);
-            cmd.Parameters.AddWithValue("@ContainerName", containerName);
-            cmd.Parameters.AddWithValue("@SubName", subName);
+            using (cmd)
+            {
+                cmd.Parameters.AddWithValue("@AppName", appName);
+                cmd.Parameters.AddWithValue("@ContainerName", containerName);
+                cmd.Parameters.AddWithValue("@SubName", subName);
+
+                conn.Open();
+
+                using (reader)
+                {
+                    
+                }
+            }
+            
         }
-
+        */
 
     }
 }
