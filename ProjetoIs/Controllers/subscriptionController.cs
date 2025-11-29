@@ -10,13 +10,13 @@ using System.Data.SqlClient;
 
 namespace ProjetoIs.Controllers
 {
-    [RoutePrefix("api/somiod")]
+    [RoutePrefix("api/subscriptions")]
     public class subscriptionController : ApiController
     {
         string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
 
         [HttpPost]
-        [Route("{appName}/{containerName}/sub")]
+        [Route("{appName}/{containerName}")]
         public IHttpActionResult Post(string appName, string containerName, [FromBody] subscription value)
         {
             if (value == null)
@@ -40,17 +40,17 @@ namespace ProjetoIs.Controllers
             string sqlCheckParent = @"SELECT COUNT(*)
                 FROM [container] c JOIN [application] a
                 ON a.[resource-name] = c.[application-resource-name]
-                WHERE a.[resource-name] = @AppName AND c.[resource-name] = @ContainerName";
+                WHERE a.[resource-name] = @applicationName AND c.[resource-name] = @containerName";
 
             string sqlCheckDuplicate = @"SELECT COUNT(*)
                 FROM [subscription]
-                WHERE [resource-name] = @SubName
-                AND [container-resource-name] = @ContainerName";
+                WHERE [resource-name] = @subName
+                AND [container-resource-name] = @containerName";
 
 
             string sqlCommand = @"INSERT INTO [subscription]
                     ([resource-name], [creation-datetime], [container-resource-name], [res-type], [evt], [endpoint])
-                    VALUES (@ResourceName, @CreationDatetime, @ContainerResourceName, @ResType, @Evt, @Endpoint)";
+                    VALUES (@resourceName, @creationDatetime, @containerResourceName, @resType, @evt, @endpoint)";
 
             SqlConnection conn = new SqlConnection(connectionString);
 
@@ -68,8 +68,8 @@ namespace ProjetoIs.Controllers
                     // 1) Verificar se app + container existem
                     using (cmdCheckParent)
                     {
-                        cmdCheckParent.Parameters.AddWithValue("@AppName", appName);
-                        cmdCheckParent.Parameters.AddWithValue("@ContainerName", containerName);
+                        cmdCheckParent.Parameters.AddWithValue("@applicationName", appName);
+                        cmdCheckParent.Parameters.AddWithValue("@containerName", containerName);
 
                         int containerCount = (int)cmdCheckParent.ExecuteScalar();
 
@@ -82,8 +82,8 @@ namespace ProjetoIs.Controllers
                     // 2) Verificar se já existe subscription com este nome
                     using (cmdCheckDuplicate)
                     {
-                        cmdCheckDuplicate.Parameters.AddWithValue("@SubName", value.ResourceName);
-                        cmdCheckDuplicate.Parameters.AddWithValue("@ContainerName", containerName);
+                        cmdCheckDuplicate.Parameters.AddWithValue("@subName", value.ResourceName);
+                        cmdCheckDuplicate.Parameters.AddWithValue("@containerName", containerName);
                         
                         int subCount = (int)cmdCheckDuplicate.ExecuteScalar();
 
@@ -96,12 +96,12 @@ namespace ProjetoIs.Controllers
                     // 3) Inserir a nova subscription
                     using (cmd)
                     {
-                        cmd.Parameters.AddWithValue("@ResourceName", value.ResourceName);
-                        cmd.Parameters.AddWithValue("@CreationDatetime", value.CreationDatetime);
-                        cmd.Parameters.AddWithValue("@ContainerResourceName", value.ContainerResourceName);
-                        cmd.Parameters.AddWithValue("@ResType", value.ResType);
-                        cmd.Parameters.AddWithValue("@Evt", value.Evt);
-                        cmd.Parameters.AddWithValue("@Endpoint", value.Endpoint);
+                        cmd.Parameters.AddWithValue("@resourceName", value.ResourceName);
+                        cmd.Parameters.AddWithValue("@creationDatetime", value.CreationDatetime);
+                        cmd.Parameters.AddWithValue("@containerResourceName", value.ContainerResourceName);
+                        cmd.Parameters.AddWithValue("@resType", value.ResType);
+                        cmd.Parameters.AddWithValue("@evt", value.Evt);
+                        cmd.Parameters.AddWithValue("@endpoint", value.Endpoint);
 
                         int rowsAffected = cmd.ExecuteNonQuery();
 
