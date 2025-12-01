@@ -70,6 +70,71 @@ namespace ProjetoIs.Controllers
             }
         }
 
+        [Route("{appName}/{containerName}/{subName}")]
+        public IHttpActionResult GetSubByName(string appName, string containerName, string subName)
+        {
+            subscription sub = null;
+
+            var conn = new SqlConnection(connectionString);
+
+            string getQuery = @"
+                SELECT s.[resource-name],
+                       s.[creation-datetime],  
+                       s.[container-resource-name],
+                       s.[res-type],
+                       s.[evt],
+                       s.[endpoint]
+                FROM [subscription] s
+                JOIN [container] c ON c.[resource-name] = s.[container-resource-name]
+                JOIN [application] a ON a.[resource-name] = c.[application-resource-name]
+                WHERE a.[resource-name] = @appName
+                  AND c.[resource-name] = @containerName
+                  AND s.[resource-name] = @subName";
+
+            var cmd = new SqlCommand(getQuery, conn);
+
+            cmd.Parameters.AddWithValue("@appName", appName);
+            cmd.Parameters.AddWithValue("@containerName", containerName);
+            cmd.Parameters.AddWithValue("@subName", subName);
+
+            try
+            {
+                using (conn)
+                {
+                    conn.Open();
+
+                    var reader = cmd.ExecuteReader();
+
+                    using (cmd)
+                    {
+                        using (reader)
+                        {
+                            if (reader.Read())
+                            {
+                                sub = new subscription
+                                {
+                                    ResourceName = (string)reader["resource-name"],
+                                    CreationDatetime = (DateTime)reader["creation-datetime"],
+                                    ContainerResourceName = (string)reader["container-resource-name"],
+                                    ResType = (string)reader["res-type"],
+                                    Evt = (int)reader["evt"],
+                                    Endpoint = (string)reader["endpoint"]
+                                };
+                            }
+                        }
+                    }
+                }
+
+                if (sub == null)
+                    return NotFound();
+                return Ok(sub);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
+        }
+
         [HttpPost]
         [Route("{appName}/{containerName}")]
         public IHttpActionResult Post(string appName, string containerName, [FromBody] subscription value)
@@ -176,53 +241,5 @@ namespace ProjetoIs.Controllers
                 return InternalServerError(ex);
             }
         }
-
-
-
-        /*
-        [HttpGet]
-        [Route("{applicationName}/{containerName}/subs/{subName}")]
-        public IHttpActionResult GetSubscription(string appName, string containerName, string subName)
-        {
-            var subscription = GetSubscriptionFromDb(appName, containerName, subName);
-            if (subscription == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(subscription);
-        }
-
-        public subscription GetSubscriptionFromDb(string appName, string containerName, string subName)
-        {
-            const string connDb = @"SELECT s.[resource-name], s.[creation-datetime], s.[container-resource-name],
-                s.[res-type], s.[evt], s.[endpoint]
-                FROM [subscription] s JOIN [container] c ON c.[resource-name] = s.[container-resource-name]
-                JOIN [application] a ON a.[resource-name] = c.[application-resource-name]
-                WHERE a.[resource-name] = @AppName
-                AND c.[resource-name] = @ContainerName
-                AND s.[resource-name] = @SubName";
-
-            var conn = new SqlConnection(connectionString);
-            var cmd = new SqlCommand(connDb, conn);
-            var reader = cmd.ExecuteReader();
-
-            using (cmd)
-            {
-                cmd.Parameters.AddWithValue("@AppName", appName);
-                cmd.Parameters.AddWithValue("@ContainerName", containerName);
-                cmd.Parameters.AddWithValue("@SubName", subName);
-
-                conn.Open();
-
-                using (reader)
-                {
-                    
-                }
-            }
-            
-        }
-        */
-
     }
 }
