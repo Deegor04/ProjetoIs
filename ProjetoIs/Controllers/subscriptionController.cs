@@ -15,6 +15,61 @@ namespace ProjetoIs.Controllers
     {
         string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
 
+        [HttpGet]
+        [Route("")]
+        public IHttpActionResult GetAllSubs()
+        {
+            var subs = new List<subscription>();
+            var conn = new SqlConnection(connectionString);
+
+            string getQuery = @"
+                SELECT [resource-name],
+                       [creation-datetime],  
+                       [container-resource-name],
+                       [res-type],
+                       [evt],
+                       [endpoint]
+                FROM [subscription]";
+
+            var cmd = new SqlCommand(getQuery, conn);
+
+            try
+            {
+                using (conn)
+                {
+                    conn.Open();
+
+                    var reader = cmd.ExecuteReader();
+
+                    using (cmd)
+                    {
+                        using (reader)
+                        {
+                            while (reader.Read())
+                            {
+                                var sub = new subscription
+                                {
+                                    ResourceName = (string)reader["resource-name"],
+                                    CreationDatetime = (DateTime)reader["creation-datetime"],
+                                    ContainerResourceName = (string)reader["container-resource-name"],
+                                    ResType = (string)reader["res-type"],
+                                    Evt = (int)reader["evt"],
+                                    Endpoint = (string)reader["endpoint"]
+                                };
+
+                                subs.Add(sub);
+                            }
+                        }
+                    }
+                }
+                return Ok(subs);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
+        }
+
         [HttpPost]
         [Route("{appName}/{containerName}")]
         public IHttpActionResult Post(string appName, string containerName, [FromBody] subscription value)
