@@ -141,11 +141,11 @@ namespace ProjetoIs.Controllers
         {
             if (value == null)
                 return BadRequest("There is no body at the moment.");
-            
+
 
             if (string.IsNullOrWhiteSpace(value.ResourceName))
                 value.ResourceName = "sub-" + Guid.NewGuid().ToString();
-            
+
 
             if (value.Evt != 1 && value.Evt != 2)
                 return BadRequest("evt inválido (usa 1 ou 2).");
@@ -204,7 +204,7 @@ namespace ProjetoIs.Controllers
                     {
                         cmdCheckDuplicate.Parameters.AddWithValue("@subName", value.ResourceName);
                         cmdCheckDuplicate.Parameters.AddWithValue("@containerName", containerName);
-                        
+
                         int subCount = (int)cmdCheckDuplicate.ExecuteScalar();
 
                         if (subCount > 0)
@@ -234,6 +234,48 @@ namespace ProjetoIs.Controllers
                             return InternalServerError(new Exception("Failed to create subscription."));
                         }
                     }
+                }
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
+        }
+
+        [HttpDelete]
+        [Route("{appName}/{containerName}/{subName}")]
+        public IHttpActionResult DeleteSubscription(string appName, string containerName, string subName)
+        {
+            var conn = new SqlConnection(connectionString);
+
+            string deleteQuery = @"
+                DELETE s
+                FROM [subscription] s
+                JOIN [container] c ON c.[resource-name] = s.[container-resource-name]
+                JOIN [application] a ON a.[resource-name] = c.[application-resource-name]
+                WHERE a.[resource-name] = @appName
+                  AND c.[resource-name] = @containerName
+                  AND s.[resource-name] = @subName";
+
+            var cmd = new SqlCommand(deleteQuery, conn);
+
+            cmd.Parameters.AddWithValue("@appName", appName);
+            cmd.Parameters.AddWithValue("@containerName", containerName);
+            cmd.Parameters.AddWithValue("@subName", subName);
+
+            try
+            {
+                using (conn)
+                {
+                    conn.Open();
+
+                    int rowsAffected = cmd.ExecuteNonQuery();
+
+                    if (rowsAffected == 0)
+                    {
+                        return NotFound();
+                    }
+                    return Ok();
                 }
             }
             catch (Exception ex)
