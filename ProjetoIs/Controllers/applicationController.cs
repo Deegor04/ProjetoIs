@@ -83,13 +83,7 @@ namespace ProjetoIs.Controllers
                     List<string> pathsContainer = controller.Get();
                     return Ok(pathsContainer);
                 }
-                else if (resType == "content-instance")
-                {
-
-                    var controller = new content_instanceController();
-                    List<string> pathsCi = controller.Get();
-                    return Ok(pathsCi);
-                }
+                
                 /*** a minha ideia era aqui chamar os outros gets 
                  * 
                  *  por este url serve tb para outras "classes" por exemplo  “somiod-discovery: content-instance”
@@ -102,6 +96,19 @@ namespace ProjetoIs.Controllers
                  *  tudo separdo por if e elses
                  * 
                  ***/
+            }
+            else if (resType == "content-instance")
+            {
+
+                var controller = new content_instanceController();
+                List<string> pathsCi = controller.Get();
+                return Ok(pathsCi);
+            }
+            if (resType.ToLower() == "subscription")
+            {
+                var controller = new subscriptionController();
+                List<string> pathsContainer = controller.GetAllSubs();
+                return Ok(pathsContainer);
             }
             return InternalServerError();
         }

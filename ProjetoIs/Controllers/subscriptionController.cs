@@ -10,88 +10,58 @@ using System.Data.SqlClient;
 
 namespace ProjetoIs.Controllers
 {
-    [RoutePrefix("api/somiod")]
+    [RoutePrefix("api/somiod/{appName}/{containerName}/subs")]
     public class subscriptionController : ApiController
     {
         string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
 
         [HttpGet]
-        [Route("{appName}/{containerName}/subs")]
-        public IHttpActionResult GetAllSubs()
+        [Route("")]
+        public List<string> GetAllSubs()
         {
-            IEnumerable<string> headers;
-            if (!Request.Headers.TryGetValues("somiod-discovery", out headers)) // verificar se o header somiod-discovery esta presente
-            {
-                return BadRequest("Missing somiod-discovery header");
-            }
+            var pathsSubscriptions = new List<string>();
 
-            string resType = headers.FirstOrDefault();
-            if (resType == null)
+            try
             {
-                return BadRequest("Invalid somiod-discovery type");
-            }
-
-            resType = resType.ToLower();
-
-            if (resType == "subscription")
-            {
-                try
+                using (SqlConnection conn = new SqlConnection(connectionString))
                 {
-                    List<string> pathsSubs = new List<string>();
+                    conn.Open();
 
-                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    string query = @"
+                SELECT  s.[resource-name]            AS sub_name,
+                        s.[container-resource-name] AS cont_name,
+                        c.[application-resource-name] AS app_name
+                FROM [subscription] s
+                JOIN container c
+                    ON s.[container-resource-name] = c.[resource-name];";
+
+                    using (var cmd = new SqlCommand(query, conn))
+                    using (var reader = cmd.ExecuteReader())
                     {
-                        conn.Open();
-
-                        string query = @"
-                            SELECT  s.[resource-name]           AS sub_name,
-                                    c.[resource-name]           AS cont_name,
-                                    a.[resource-name]           AS app_name
-                            FROM [subscription] s
-                            JOIN [container]   c ON c.[resource-name] = s.[container-resource-name]
-                            JOIN [application] a ON a.[resource-name] = c.[application-resource-name];";
-
-                        using (SqlCommand cmd = new SqlCommand(query, conn))
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        while (reader.Read())
                         {
-                            while (reader.Read())
-                            {
-                                string sub = reader["sub_name"].ToString();
-                                string cont = reader["cont_name"].ToString();
-                                string app = reader["app_name"].ToString();
+                            string sub = reader["sub_name"].ToString();
+                            string cont = reader["cont_name"].ToString();
+                            string app = reader["app_name"].ToString();
 
-                                // caminho SOMIOD para cada subscrição
-                                pathsSubs.Add($"/api/somiod-subscription/{app}/{cont}/subs/{sub}");
-                            }
+                            // caminho SOMIOD padrão para subscrições
+                            pathsSubscriptions.Add($"/api/somiod/{app}/{cont}/subs/{sub}");
                         }
                     }
-
-                    return Ok(pathsSubs);
                 }
-                catch (Exception ex)
-                {
-                    return InternalServerError(ex);
-                }
-            }
-            else if (resType == "container")
-            {
-                var controller = new containerController();
-                List<string> pathsContainer = controller.Get();
-                return Ok(pathsContainer);
-            }
-            else if (resType == "content-instance")
-            {
-                var controller = new content_instanceController();
-                List<string> pathsCi = controller.Get();
-                return Ok(pathsCi);
-            }
 
-            return BadRequest("Unknown somiod-discovery type");
-
+                return pathsSubscriptions;
+            }
+            catch (Exception ex)
+            {
+                pathsSubscriptions.Add(ex.ToString());
+                return pathsSubscriptions;
+            }
         }
 
+
         [HttpGet]
-        [Route("{appName}/{containerName}/subs/{subName}")]
+        [Route("{subName}")]
         public IHttpActionResult GetSubscription(string appName, string containerName, string subName)
         {
             IEnumerable<string> headers;
@@ -209,9 +179,10 @@ namespace ProjetoIs.Controllers
             }
         }
 
+        /*
         [HttpPost]
         [Route("{appName}/{containerName}/subs")]
-        public IHttpActionResult Post(string appName, string containerName, [FromBody] subscription value)
+        public IHttpActionResult Post(string containerName, [FromBody] subscription value)
         {
             if (value == null)
                 return BadRequest("There is no body at the moment.");
@@ -315,9 +286,10 @@ namespace ProjetoIs.Controllers
                 return InternalServerError(ex);
             }
         }
+        */
 
         [HttpDelete]
-        [Route("{appName}/{containerName}/subs/{subName}")]
+        [Route("{subName}")]
         public IHttpActionResult DeleteSubscription(string appName, string containerName, string subName)
         {
             var conn = new SqlConnection(connectionString);
