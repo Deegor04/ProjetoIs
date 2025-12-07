@@ -104,7 +104,7 @@ namespace ProjetoIs.Controllers
                 List<string> pathsCi = controller.Get();
                 return Ok(pathsCi);
             }
-            if (resType.ToLower() == "subscription")
+            else if (resType.ToLower() == "subscription")
             {
                 var controller = new subscriptionController();
                 List<string> pathsContainer = controller.GetAllSubs();
