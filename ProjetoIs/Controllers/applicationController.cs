@@ -75,14 +75,13 @@ namespace ProjetoIs.Controllers
                     return InternalServerError(ex);
                 }
             }
-            else if (resType == "container")
+            else if (resType.ToLower() == "container")
             {
-                if (resType.ToLower() == "container")
-                { 
+                
                     var controller = new containerController();
                     List<string> pathsContainer = controller.Get();
                     return Ok(pathsContainer);
-                }
+                
                 
                 /*** a minha ideia era aqui chamar os outros gets 
                  * 
@@ -97,7 +96,7 @@ namespace ProjetoIs.Controllers
                  * 
                  ***/
             }
-            else if (resType == "content-instance")
+            else if (resType.ToLower() == "content-instance")
             {
 
                 var controller = new content_instanceController();
