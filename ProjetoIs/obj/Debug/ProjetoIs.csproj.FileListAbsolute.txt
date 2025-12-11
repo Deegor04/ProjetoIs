@@ -264,3 +264,6 @@ D:\jomim\Documents\EI_25\IntegracaoSistemas\Pratica\Projeto\Git\ProjetoIs\Projet
 D:\jomim\Documents\EI_25\IntegracaoSistemas\Pratica\Projeto\Git\ProjetoIs\ProjetoIs\bin\Newtonsoft.Json.Bson.dll
 D:\jomim\Documents\EI_25\IntegracaoSistemas\Pratica\Projeto\Git\ProjetoIs\ProjetoIs\bin\Newtonsoft.Json.Bson.pdb
 D:\jomim\Documents\EI_25\IntegracaoSistemas\Pratica\Projeto\Git\ProjetoIs\ProjetoIs\bin\Newtonsoft.Json.Bson.xml
+D:\jomim\Documents\EI_25\IntegracaoSistemas\Pratica\Projeto\Git\ProjetoIs\ProjetoIs\bin\ProjetoIs.xml
+D:\jomim\Documents\EI_25\IntegracaoSistemas\Pratica\Projeto\Git\ProjetoIs\ProjetoIs\bin\Swashbuckle.Core.dll
+D:\jomim\Documents\EI_25\IntegracaoSistemas\Pratica\Projeto\Git\ProjetoIs\ProjetoIs\bin\WebActivatorEx.dll
