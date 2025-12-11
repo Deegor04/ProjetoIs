@@ -275,8 +275,13 @@ namespace ProjetoIs.Controllers
                             cmdDup.Parameters.AddWithValue("@n", sub.ResourceName);
                             cmdDup.Parameters.AddWithValue("@c", containerName);
 
-                            if ((int)cmdDup.ExecuteScalar() > 0)
-                                return BadRequest("Subscription already exists");
+                            int exists = (int)cmdDup.ExecuteScalar();
+
+                            if (exists > 0)
+                            {
+                                string timestamp = creation.ToString("yyyyMMdd_HHmmss_fff");
+                                sub.ResourceName = $"{sub.ResourceName}_{timestamp}";
+                            }
                         }
 
                         // Inserir subscription

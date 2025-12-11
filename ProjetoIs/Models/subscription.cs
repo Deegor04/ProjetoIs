@@ -28,9 +28,5 @@ namespace ProjetoIs.Models
         [Column("endpoint")]
         public string Endpoint { get; set; }
 
-
-        [JsonProperty("container-id")]
-        [Column("container-id")]
-        public int ContainerId { get; set; }
     }
 }
