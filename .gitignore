@@ -2,3 +2,5 @@
 /packages
 ProjetoIs/App_Data/database.mdf
 ProjetoIs/App_Data/database_log.ldf
+*.dll
+ProjetoIs/bin/roslyn/VBCSCompiler.exe
