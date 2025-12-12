@@ -1,0 +1,9 @@
+C:\Users\PC\Documents\GitHub\jeto_IS_25_26\ProjetoIs\TestApplications\bin\Debug\TestApplications.exe.config
+C:\Users\PC\Documents\GitHub\jeto_IS_25_26\ProjetoIs\TestApplications\bin\Debug\TestApplications.exe
+C:\Users\PC\Documents\GitHub\jeto_IS_25_26\ProjetoIs\TestApplications\bin\Debug\TestApplications.pdb
+C:\Users\PC\Documents\GitHub\jeto_IS_25_26\ProjetoIs\TestApplications\obj\Debug\TestApplications.csproj.AssemblyReference.cache
+C:\Users\PC\Documents\GitHub\jeto_IS_25_26\ProjetoIs\TestApplications\obj\Debug\TestApplications.Properties.Resources.resources
+C:\Users\PC\Documents\GitHub\jeto_IS_25_26\ProjetoIs\TestApplications\obj\Debug\TestApplications.csproj.GenerateResource.cache
+C:\Users\PC\Documents\GitHub\jeto_IS_25_26\ProjetoIs\TestApplications\obj\Debug\TestApplications.csproj.CoreCompileInputs.cache
+C:\Users\PC\Documents\GitHub\jeto_IS_25_26\ProjetoIs\TestApplications\obj\Debug\TestApplications.exe
+C:\Users\PC\Documents\GitHub\jeto_IS_25_26\ProjetoIs\TestApplications\obj\Debug\TestApplications.pdb
