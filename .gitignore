@@ -1,4 +1,20 @@
-/.vs
-/packages
-ProjetoIs/App_Data/database.mdf
-ProjetoIs/App_Data/database_log.ldf
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Build output
+**/bin/
+**/obj/
+
+# Debug / runtime
+*.dll
+*.pdb
+*.exe
+
+# Local databases
+*.mdf
+*.ldf
+
+# Generated notifications
+**/Notifications/

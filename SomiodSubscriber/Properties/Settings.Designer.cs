@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Test_Applications.Properties
+namespace SomiodSubscriber.Properties
 {
 
 

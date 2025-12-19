@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+	<xs:element name="notification" type="NotificationType"/>
+
+	<xs:complexType name="NotificationType">
+		<xs:sequence>
+			<xs:element name="eventType" type="EventType"/>
+			<xs:element name="resourceType" type="ResourceType"/>
+			<xs:element name="resourcePath" type="ResourcePathType"/>
+			<xs:element name="subscription" type="xs:string" minOccurs="0"/>
+			<xs:element name="timestamp" type="IsoDateTimeType"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:simpleType name="EventType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="creation"/>
+			<xs:enumeration value="deletion"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="ResourceType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="application"/>
+			<xs:enumeration value="container"/>
+			<xs:enumeration value="content-instance"/>
+			<xs:enumeration value="subscription"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="ResourcePathType">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="/api/somiod/[^ \t\r\n]+"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="IsoDateTimeType">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z)?)|(\d{2}/\d{2}/\d{4}\s\d{2}:\d{2}:\d{2})"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+</xs:schema>

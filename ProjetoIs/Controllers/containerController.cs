@@ -1,11 +1,11 @@
 ﻿using Newtonsoft.Json.Linq;
 using ProjetoIs.Models;
+using ProjetoIs.Services;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Web.Http;
 
 namespace ProjetoIs.Controllers
@@ -13,19 +13,20 @@ namespace ProjetoIs.Controllers
     [RoutePrefix("api/somiod/{applicationName}")]
     public class containerController : ApiController
     {
-        string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
+        private readonly string connectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
 
-        #region getAll
-        public List<String> Get()
+        private readonly NotificationService _notifier = new NotificationService();
+
+        #region getAll (helper interno p/ discovery global)
+        public List<string> Get()
         {
-                List<string> pathsApplicacion = new List<string>();
+            var paths = new List<string>();
+
             try
             {
-
                 using (SqlConnection conn = new SqlConnection(connectionString))
                 {
                     conn.Open();
-
                     string query = @"SELECT [resource-name],[application-resource-name] FROM container";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
@@ -33,62 +34,71 @@ namespace ProjetoIs.Controllers
                     {
                         while (reader.Read())
                         {
-                            string container_name = reader["resource-name"].ToString();
-                            string app_name = reader["application-resource-name"].ToString();
-                            pathsApplicacion.Add($"/api/somiod/{app_name}/{container_name}");
+                            string containerName = reader["resource-name"].ToString();
+                            string appName = reader["application-resource-name"].ToString();
+                            paths.Add($"/api/somiod/{appName}/{containerName}");
                         }
                     }
                 }
 
-                return pathsApplicacion;
+                return paths;
             }
             catch (Exception ex)
             {
-                pathsApplicacion.Add(ex.ToString());
-                return pathsApplicacion;
+                paths.Add(ex.ToString());
+                return paths;
             }
         }
         #endregion
 
-        #region get
+        #region get (container OU discovery de content-instances no container)
         [HttpGet]
         [Route("{containerName}")]
-        public IHttpActionResult GetContainer(string applicationName,string containerName)
+        public IHttpActionResult GetContainer(string applicationName, string containerName)
         {
-            IEnumerable<string> headers;
-            if (!Request.Headers.TryGetValues("somiod-discovery", out headers)) // verificar se somiod-discovery esta presente
+            if (string.IsNullOrWhiteSpace(applicationName) || string.IsNullOrWhiteSpace(containerName))
+                return BadRequest("Missing applicationName or containerName");
+
+            // Verificar se somiod-discovery está presente
+            if (!Request.Headers.TryGetValues("somiod-discovery", out IEnumerable<string> headers))
             {
-                try // nao esta presente -> dar return a um container
+                // GET normal → devolver o container
+                try
                 {
                     using (var conn = new SqlConnection(connectionString))
                     {
                         conn.Open();
 
-                        string query = @"SELECT * FROM container WHERE [resource-name] = @containerName";
+                        string query = @"
+                            SELECT * 
+                            FROM container 
+                            WHERE [resource-name] = @containerName
+                              AND [application-resource-name] = @applicationName";
 
                         using (var cmd = new SqlCommand(query, conn))
                         {
                             cmd.Parameters.AddWithValue("@containerName", containerName);
+                            cmd.Parameters.AddWithValue("@applicationName", applicationName);
 
                             using (var reader = cmd.ExecuteReader())
                             {
-                                container containerGet = null;
-
-
                                 if (reader.Read())
                                 {
-                                    containerGet = new container
+                                    var containerGet = new container
                                     {
                                         ResourceName = (string)reader["resource-name"],
                                         ResType = (string)reader["res-type"],
                                         CreationDatetime = (DateTime)reader["creation-datetime"],
                                         ApplicationResourceName = (string)reader["application-resource-name"]
                                     };
-                                }
 
-                                if (containerGet != null)
-                                {
-                                    return Ok(new { containerGet.ResourceName, containerGet.ResType, containerGet.CreationDatetime, containerGet.ApplicationResourceName, });
+                                    return Ok(new
+                                    {
+                                        containerGet.ResourceName,
+                                        containerGet.ResType,
+                                        containerGet.CreationDatetime,
+                                        containerGet.ApplicationResourceName
+                                    });
                                 }
 
                                 return NotFound();
@@ -98,56 +108,65 @@ namespace ProjetoIs.Controllers
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error on getting the application: {ex.Message}");
                     return InternalServerError(ex);
                 }
             }
-            else {
-                string resType = headers.FirstOrDefault();
-                if (resType == "content-instance")
+
+            // GET com discovery
+            string resType = headers.FirstOrDefault()?.Trim();
+
+            if (resType == "content-instance")
+            {
+                var pathsCi = new List<string>();
+
+                try
                 {
-
-                    var pathsCi = new List<string>();
-
-                    try
+                    using (var conn = new SqlConnection(connectionString))
                     {
-                        using (var conn = new SqlConnection(connectionString))
+                        conn.Open();
+
+                        using (var cmdCheck = new SqlCommand(@"
+                            SELECT COUNT(*)
+                            FROM container
+                            WHERE [resource-name] = @cont
+                              AND [application-resource-name] = @app", conn))
                         {
-                            conn.Open();
+                            cmdCheck.Parameters.AddWithValue("@cont", containerName);
+                            cmdCheck.Parameters.AddWithValue("@app", applicationName);
 
-                            string query = @"
-                    SELECT [resource-name] 
-                    FROM [content-instance]
-                    WHERE [container-resource-name] = @container";
+                            if ((int)cmdCheck.ExecuteScalar() == 0)
+                                return NotFound();
+                        }
 
-                            using (var cmd = new SqlCommand(query, conn))
+                        string query = @"
+                            SELECT [resource-name]
+                            FROM [content-instance]
+                            WHERE [container-resource-name] = @container";
+
+                        using (var cmd = new SqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@container", containerName);
+
+                            using (var reader = cmd.ExecuteReader())
                             {
-                                cmd.Parameters.AddWithValue("@container", containerName);
-
-                                using (var reader = cmd.ExecuteReader())
+                                while (reader.Read())
                                 {
-                                    while (reader.Read())
-                                    {
-                                        string ci = reader["resource-name"].ToString();
-                                        pathsCi.Add($"/api/somiod/{applicationName}/{containerName}/{ci}");
-                                    }
+                                    string ci = reader["resource-name"].ToString();
+                                    pathsCi.Add($"/api/somiod/{applicationName}/{containerName}/{ci}");
                                 }
                             }
                         }
+                    }
 
-                        return Ok(pathsCi);
-                    }
-                    /*
-                     if (resType == "content-instance"){
-                    }
-                     */
-                    catch (SqlException ex)
-                    {
-                        return InternalServerError(ex);
-                    }
+                    return Ok(pathsCi);
                 }
-                return BadRequest("Unknown somiod-discovery type");
-            }    
+                catch (SqlException ex)
+                {
+                    return InternalServerError(ex);
+                }
+            }
+
+            return BadRequest("Unknown somiod-discovery type");
         }
         #endregion
 
@@ -156,6 +175,9 @@ namespace ProjetoIs.Controllers
         [Route("{containerName}")]
         public IHttpActionResult Post(string applicationName, string containerName, [FromBody] JObject body)
         {
+            if (string.IsNullOrWhiteSpace(applicationName) || string.IsNullOrWhiteSpace(containerName))
+                return BadRequest("Missing applicationName or containerName");
+
             if (body == null)
                 return BadRequest("Missing body");
 
@@ -165,7 +187,7 @@ namespace ProjetoIs.Controllers
                 return BadRequest("Missing field: resource-name");
 
             // 2) Validar res-type
-            string resType = (string)body["res-type"];
+            string resType = ((string)body["res-type"])?.Trim();
             if (string.IsNullOrWhiteSpace(resType))
                 return BadRequest("Missing field: res-type");
 
@@ -178,16 +200,14 @@ namespace ProjetoIs.Controllers
                 {
                     conn.Open();
 
-                    // -------------------------------------------------------
-                    // 0) Validar parent: application + container
-                    // -------------------------------------------------------
+                    // Validar parent: application + container
                     using (var cmd = new SqlCommand(@"
-                SELECT COUNT(*) 
-                FROM container c 
-                JOIN application a 
-                  ON a.[resource-name] = c.[application-resource-name]
-                WHERE a.[resource-name] = @app 
-                  AND c.[resource-name] = @cont", conn))
+                        SELECT COUNT(*) 
+                        FROM container c 
+                        JOIN application a 
+                          ON a.[resource-name] = c.[application-resource-name]
+                        WHERE a.[resource-name] = @app 
+                          AND c.[resource-name] = @cont", conn))
                     {
                         cmd.Parameters.AddWithValue("@app", applicationName);
                         cmd.Parameters.AddWithValue("@cont", containerName);
@@ -196,39 +216,41 @@ namespace ProjetoIs.Controllers
                             return BadRequest("Application or container does not exist.");
                     }
 
-                    // ==================================================================
                     // CASE 1: CONTENT-INSTANCE
-                    // ==================================================================
                     if (resType == "content-instance")
                     {
-                        // Converter para modelo correto
                         var ci = body.ToObject<content_instance>();
 
-                        // Validar campos obrigatórios
-                        if (string.IsNullOrWhiteSpace(ci.ContentType) ||
-                            string.IsNullOrWhiteSpace(ci.Content))
+                        if (string.IsNullOrWhiteSpace(ci.ContentType) || string.IsNullOrWhiteSpace(ci.Content))
                             return BadRequest("Missing content or content-type.");
 
                         ci.ResType = "content-instance";
                         ci.ContainerResourceName = containerName;
                         ci.CreationDatetime = creation;
 
-                        // Ver duplicado
-                        using (var cmdDup = new SqlCommand(
-                            "SELECT COUNT(*) FROM [content-instance] WHERE [resource-name] = @n", conn))
+                        string finalName = ci.ResourceName;
+
+                        using (var cmdDup = new SqlCommand(@"
+                            SELECT COUNT(*) 
+                            FROM [content-instance] 
+                            WHERE [resource-name] = @n
+                              AND [container-resource-name] = @c", conn))
                         {
-                            cmdDup.Parameters.AddWithValue("@n", ci.ResourceName);
+                            cmdDup.Parameters.AddWithValue("@n", finalName);
+                            cmdDup.Parameters.AddWithValue("@c", containerName);
+
                             bool exists = (int)cmdDup.ExecuteScalar() > 0;
 
-                            string finalName = ci.ResourceName;
                             if (exists)
-                                finalName = creation.ToString("yyyyMMdd_HHmmss_fff");
+                            {
+                                string timestamp = creation.ToString("yyyyMMdd_HHmmss_fff");
+                                finalName = $"{ci.ResourceName}_{timestamp}";
+                            }
 
-                            // Inserir CI
                             using (var cmdIns = new SqlCommand(@"
-                        INSERT INTO [content-instance]
-                        ([resource-name],[res-type],[creation-datetime],[container-resource-name],[content-type],[content])
-                        VALUES (@n,@t,@dt,@c,@ctype,@content)", conn))
+                                INSERT INTO [content-instance]
+                                ([resource-name],[res-type],[creation-datetime],[container-resource-name],[content-type],[content])
+                                VALUES (@n,@t,@dt,@c,@ctype,@content)", conn))
                             {
                                 cmdIns.Parameters.AddWithValue("@n", finalName);
                                 cmdIns.Parameters.AddWithValue("@t", ci.ResType);
@@ -239,27 +261,23 @@ namespace ProjetoIs.Controllers
 
                                 cmdIns.ExecuteNonQuery();
 
+                                _notifier.NotifySubscriptions(applicationName, containerName, finalName, SubscriptionEvent.Creation, conn);
+
                                 ci.ResourceName = finalName;
 
-                                return Created(
-                                    $"/api/somiod/{applicationName}/{containerName}/{ci.ResourceName}",
-                                    ci);
+                                return Created($"/api/somiod/{applicationName}/{containerName}/{ci.ResourceName}", ci);
                             }
                         }
                     }
 
-                    // ==================================================================
                     // CASE 2: SUBSCRIPTION
-                    // ==================================================================
                     if (resType == "subscription")
                     {
                         var sub = body.ToObject<subscription>();
 
-                        // Validar evt
-                        if (sub.Evt != 1 && sub.Evt != 2)
-                            return BadRequest("evt must be 1 or 2");
+                        if (sub.Evt < 1 || sub.Evt > 3)
+                            return BadRequest("evt must be 1 (creation), 2 (deletion) or both");
 
-                        // Validar endpoint
                         if (string.IsNullOrWhiteSpace(sub.Endpoint))
                             return BadRequest("endpoint is required");
 
@@ -267,10 +285,11 @@ namespace ProjetoIs.Controllers
                         sub.ContainerResourceName = containerName;
                         sub.CreationDatetime = creation;
 
-                        // Ver duplicado
                         using (var cmdDup = new SqlCommand(@"
-                    SELECT COUNT(*) FROM subscription
-                    WHERE [resource-name] = @n AND [container-resource-name] = @c", conn))
+                            SELECT COUNT(*) 
+                            FROM subscription
+                            WHERE [resource-name] = @n 
+                              AND [container-resource-name] = @c", conn))
                         {
                             cmdDup.Parameters.AddWithValue("@n", sub.ResourceName);
                             cmdDup.Parameters.AddWithValue("@c", containerName);
@@ -284,11 +303,10 @@ namespace ProjetoIs.Controllers
                             }
                         }
 
-                        // Inserir subscription
                         using (var cmdIns = new SqlCommand(@"
-                    INSERT INTO subscription
-                    ([resource-name],[creation-datetime],[container-resource-name],[res-type],[evt],[endpoint])
-                    VALUES (@n,@dt,@c,@t,@e,@p)", conn))
+                            INSERT INTO subscription
+                            ([resource-name],[creation-datetime],[container-resource-name],[res-type],[evt],[endpoint])
+                            VALUES (@n,@dt,@c,@t,@e,@p)", conn))
                         {
                             cmdIns.Parameters.AddWithValue("@n", sub.ResourceName);
                             cmdIns.Parameters.AddWithValue("@dt", sub.CreationDatetime);
@@ -299,15 +317,10 @@ namespace ProjetoIs.Controllers
 
                             cmdIns.ExecuteNonQuery();
 
-                            return Created(
-                                $"/api/somiod/{applicationName}/{containerName}/subs/{sub.ResourceName}",
-                                sub);
+                            return Created($"/api/somiod/{applicationName}/{containerName}/subs/{sub.ResourceName}", sub);
                         }
                     }
 
-                    // ==================================================================
-                    // CASE 3: OUTRO VALOR INVÁLIDO
-                    // ==================================================================
                     return BadRequest("Invalid res-type. Must be 'content-instance' or 'subscription'.");
                 }
             }
@@ -318,61 +331,16 @@ namespace ProjetoIs.Controllers
         }
         #endregion
 
-        #region PUT
+        #region PUT (routing consistente + filtra por applicationName)
         [HttpPut]
-        [Route("{resourceName}")]
-        public IHttpActionResult Put(string resourceName, [FromBody] container containerPut) // o put apenas muda a app ao qual o container pertence
-        {
-            
-            if (string.IsNullOrWhiteSpace(resourceName) || containerPut == null )
-            {
-                return BadRequest("check the the resource name and the new container data");
-            }
-            else
-            {
-                try
-                {
-                    using (SqlConnection conn = new SqlConnection(connectionString))
-                    {
-                        conn.Open();
-
-                        string query = @"UPDATE container SET [application-resource-name] = @application_resource_name WHERE [resource-name] = @resourceName";
-
-                        
-
-                        using (SqlCommand cmd = new SqlCommand(query, conn))
-                        {
-                            cmd.Parameters.AddWithValue("@application_resource_name", containerPut.ApplicationResourceName);
-                            cmd.Parameters.AddWithValue("@resourceName", resourceName);
-
-                            int rows = cmd.ExecuteNonQuery();
-                            if (rows == 0)
-                                return NotFound();
-                        }
-                    }
-                    // apenas para na resposta nao aparecer estes campos a  null, porque efetivamente nao foram alterados, apenas algo visual
-                    containerPut.ResType = "container"; 
-                    containerPut.ResourceName = resourceName;
-
-                    return Ok(containerPut);
-                }
-                catch (SqlException ex)
-                {
-                    return InternalServerError(ex);
-                }
-            }
-        }
-
-        #endregion
-
-        #region Delete
-
-        [HttpDelete]
         [Route("{containerName}")]
-        public IHttpActionResult Delete(string containerName)
+        public IHttpActionResult Put(string applicationName, string containerName, [FromBody] container containerPut)
         {
-            if (string.IsNullOrWhiteSpace(containerName))
-                return BadRequest("Missing resource name");
+            if (string.IsNullOrWhiteSpace(applicationName) || string.IsNullOrWhiteSpace(containerName) || containerPut == null)
+                return BadRequest("Check applicationName, containerName and body.");
+
+            if (string.IsNullOrWhiteSpace(containerPut.ApplicationResourceName))
+                return BadRequest("Missing field: application-resource-name");
 
             try
             {
@@ -380,11 +348,18 @@ namespace ProjetoIs.Controllers
                 {
                     conn.Open();
 
-                    string query = @"DELETE FROM container WHERE [resource-name] = @containerName";
+                    // Atualiza só se o container pertencer à app do URL
+                    string query = @"
+                        UPDATE container 
+                        SET [application-resource-name] = @newApp
+                        WHERE [resource-name] = @containerName
+                          AND [application-resource-name] = @currentApp";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
+                        cmd.Parameters.AddWithValue("@newApp", containerPut.ApplicationResourceName);
                         cmd.Parameters.AddWithValue("@containerName", containerName);
+                        cmd.Parameters.AddWithValue("@currentApp", applicationName);
 
                         int rows = cmd.ExecuteNonQuery();
                         if (rows == 0)
@@ -392,7 +367,54 @@ namespace ProjetoIs.Controllers
                     }
                 }
 
-                return Ok($"Container '{containerName}' deleted successfully.");
+                containerPut.ResType = "container";
+                containerPut.ResourceName = containerName;
+
+                return Ok(new
+                {
+                    containerPut.ResourceName,
+                    containerPut.ResType,
+                    containerPut.ApplicationResourceName
+                });
+            }
+            catch (SqlException ex)
+            {
+                return InternalServerError(ex);
+            }
+        }
+        #endregion
+
+        #region Delete (routing consistente + filtra por applicationName)
+        [HttpDelete]
+        [Route("{containerName}")]
+        public IHttpActionResult Delete(string applicationName, string containerName)
+        {
+            if (string.IsNullOrWhiteSpace(applicationName) || string.IsNullOrWhiteSpace(containerName))
+                return BadRequest("Missing applicationName or containerName");
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+
+                    string query = @"
+                        DELETE FROM container 
+                        WHERE [resource-name] = @containerName
+                          AND [application-resource-name] = @appName";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@containerName", containerName);
+                        cmd.Parameters.AddWithValue("@appName", applicationName);
+
+                        int rows = cmd.ExecuteNonQuery();
+                        if (rows == 0)
+                            return NotFound();
+                    }
+                }
+
+                return StatusCode(HttpStatusCode.NoContent);
             }
             catch (SqlException ex)
             {

@@ -14,7 +14,7 @@ namespace ProjetoIs.Controllers
         private readonly string connectionString =
             ConfigurationManager.ConnectionStrings["ProjetoIs.Properties.Settings.ConnectionString"].ConnectionString;
 
-        public List<string> GetAllSubs()
+        public List<string> Get()
         {
             var list = new List<string>();
 

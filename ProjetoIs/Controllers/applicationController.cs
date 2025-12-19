@@ -106,8 +106,8 @@ namespace ProjetoIs.Controllers
             else if (resType.ToLower() == "subscription")
             {
                 var controller = new subscriptionController();
-                List<string> pathsContainer = controller.GetAllSubs();
-                return Ok(pathsContainer);
+                List<string> pathsSubs = controller.Get();
+                return Ok(pathsSubs);
             }
             return InternalServerError();
         }
@@ -301,13 +301,14 @@ namespace ProjetoIs.Controllers
                         }
                         else // aplicacao ja existe -> temos de criar uma com um nome unico
                         {
-                            string uniqueName = app.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
+                            string timestamp = app.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
+                            string uniqueName = $"{app.ResourceName}_{timestamp}";
 
                             string query = @"INSERT INTO application ([resource-name], [res-type], [creation-datetime]) VALUES (@resourceName, @resType, @creationDatetime)";
 
                             using (SqlCommand command = new SqlCommand(query, conn))
                             {
-                                command.Parameters.AddWithValue("@resourceName", uniqueName); // cada data e unica, por isso o nome vai ser sempre unico
+                                command.Parameters.AddWithValue("@resourceName", uniqueName);
                                 command.Parameters.AddWithValue("@resType", app.ResType);
                                 command.Parameters.AddWithValue("@creationDatetime", app.CreationDatetime);
                                 app.ResourceName = uniqueName;
@@ -376,7 +377,8 @@ namespace ProjetoIs.Controllers
 
                         if (exists > 0)
                         {
-                            string uniqueName = container.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
+                            string timestamp = container.CreationDatetime.ToString("yyyyMMdd_HHmmss_fff");
+                            string uniqueName = $"{container.ResourceName}_{timestamp}";
 
                             string insertQuery = @"INSERT INTO container ([resource-name], [res-type], [creation-datetime], [application-resource-name]) VALUES (@resourceName, @resType, @creationDatetime, @applicationName)";
 
