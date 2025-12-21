@@ -214,12 +214,12 @@ namespace ProjetoIs.Controllers
                         conn.Open();
 
                         string query = @"
-                    SELECT  ci.[resource-name]            AS ci_name,
-                            ci.[container-resource-name] AS cont_name
-                    FROM [content-instance] ci
-                    JOIN container c
-                      ON ci.[container-resource-name] = c.[resource-name]
-                    WHERE c.[application-resource-name] = @applicationName;";
+                            SELECT  ci.[resource-name]            AS ci_name,
+                                    ci.[container-resource-name] AS cont_name
+                            FROM [content-instance] ci
+                            JOIN container c
+                              ON ci.[container-resource-name] = c.[resource-name]
+                            WHERE c.[application-resource-name] = @applicationName;";
 
                         using (SqlCommand cmd = new SqlCommand(query, conn))
                         {
@@ -240,9 +240,41 @@ namespace ProjetoIs.Controllers
 
                     return Ok(pathsCi);
                 }
-                /*else if (resType == "subscription")
+                else if (resType == "subscription")
                 {
-                }*/
+                    var pathsSub = new List<string>();
+
+                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    {
+                        conn.Open();
+
+                        string query = @"
+                            SELECT  sub.[resource-name]            AS subscription_name,
+                                    sub.[container-resource-name] AS cont_name
+                            FROM [subscription] sub
+                            JOIN container c
+                              ON sub.[container-resource-name] = c.[resource-name]
+                            WHERE c.[application-resource-name] = @applicationName;";
+
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@applicationName", applicationName);
+
+                            using (SqlDataReader reader = cmd.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    string subscription_name = reader["subscription_name"].ToString();
+                                    string containerName = reader["cont_name"].ToString();
+
+                                    pathsSub.Add($"/api/somiod/{applicationName}/{containerName}/subs/{subscription_name}");
+                                }
+                            }
+                        }
+                    }
+
+                    return Ok(pathsSub);
+                }
 
                 else
                 {
