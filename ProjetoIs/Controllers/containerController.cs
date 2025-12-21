@@ -203,7 +203,7 @@ namespace ProjetoIs.Controllers
                                 while (reader.Read())
                                 {
                                     string subs = reader["resource-name"].ToString();
-                                    pathsSubs.Add($"/api/somiod/{applicationName}/{containerName}/{subs}");
+                                    pathsSubs.Add($"/api/somiod/{applicationName}/{containerName}/subs/{subs}");
                                 }
                             }
                         }
