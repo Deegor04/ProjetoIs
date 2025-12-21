@@ -464,14 +464,14 @@ namespace ProjetoIs.Controllers
 
         #region PUT
         [HttpPut]
-        [Route("{resourceName}")]
-        public IHttpActionResult Put(string resourceName, [FromBody] application app)
+        [Route("{applicationName}")]
+        public IHttpActionResult Put(string applicationName, [FromBody] application app)
         {
             /***
              * da forma que esta implementado nem faz muito sentido enviar qualquer dado no body, o res-type nao muda, a data e enviada por uma funcao
              * mas de qualquer maneira decidi que temos de enviar pelo menos o resouceName, embora a unica coisa alterada seja a creation-date
              ***/
-            if (string.IsNullOrWhiteSpace(resourceName) || app == null || resourceName != app.ResourceName)
+            if (string.IsNullOrWhiteSpace(applicationName) || app == null || applicationName != app.ResourceName)
             {
                 return BadRequest("check the the resource name and the new application data");
             }
@@ -491,7 +491,7 @@ namespace ProjetoIs.Controllers
                         using (SqlCommand cmd = new SqlCommand(query, conn))
                         {
                             cmd.Parameters.AddWithValue("@creationDatetime", creation_time);
-                            cmd.Parameters.AddWithValue("@resourceName", resourceName);
+                            cmd.Parameters.AddWithValue("@resourceName", applicationName);
 
                             int rows = cmd.ExecuteNonQuery();
                             if (rows == 0)
