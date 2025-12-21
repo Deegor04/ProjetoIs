@@ -51,7 +51,7 @@ namespace ProjetoIs.Controllers
         }
         #endregion
 
-        #region get (container OU discovery de content-instances no container)
+        #region get (container OU discovery de content-instances/subscriptions no container)
         [HttpGet]
         [Route("{containerName}")]
         public IHttpActionResult GetContainer(string applicationName, string containerName)
@@ -159,6 +159,57 @@ namespace ProjetoIs.Controllers
                     }
 
                     return Ok(pathsCi);
+                }
+                catch (SqlException ex)
+                {
+                    return InternalServerError(ex);
+                }
+
+            }
+            if (resType == "subscription")
+            {
+                var pathsSubs = new List<string>();
+
+                try
+                {
+                    using (var conn = new SqlConnection(connectionString))
+                    {
+                        conn.Open();
+
+                        using (var cmdCheck = new SqlCommand(@"
+                            SELECT COUNT(*)
+                            FROM container
+                            WHERE [resource-name] = @cont
+                              AND [application-resource-name] = @app", conn))
+                        {
+                            cmdCheck.Parameters.AddWithValue("@cont", containerName);
+                            cmdCheck.Parameters.AddWithValue("@app", applicationName);
+
+                            if ((int)cmdCheck.ExecuteScalar() == 0)
+                                return NotFound();
+                        }
+
+                        string query = @"
+                            SELECT [resource-name]
+                            FROM [subscription]
+                            WHERE [container-resource-name] = @container";
+
+                        using (var cmd = new SqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@container", containerName);
+
+                            using (var reader = cmd.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    string subs = reader["resource-name"].ToString();
+                                    pathsSubs.Add($"/api/somiod/{applicationName}/{containerName}/{subs}");
+                                }
+                            }
+                        }
+                    }
+
+                    return Ok(pathsSubs);
                 }
                 catch (SqlException ex)
                 {
