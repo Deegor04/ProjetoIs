@@ -237,7 +237,3 @@ The connection string is read from `ProjetoIs.Properties.Settings.ConnectionStri
 - **RestSharp** for HTTP calls from the publisher forms (used in addition to `HttpClient`).
 
 ---
-
-## 👥 Author
-
-- José Branco 
