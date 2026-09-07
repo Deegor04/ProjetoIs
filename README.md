@@ -21,7 +21,7 @@ A service-oriented RESTful middleware (**SOMIOD**) built with **C#** and **.NET*
 
 A RESTful middleware service for managing IoT resources and pushing notifications to subscribed endpoints. The project is built on **ASP.NET Web API (.NET Framework 4.8)** with **SQL Server** as the persistence layer and ships with two Windows Forms clients: a **Publisher** for browsing and managing resources, and a **Subscriber** for receiving notifications in real time.
 
-![Start page](img/start_page.png)
+![Start page](start_page.png)
 
 ---
 
@@ -58,7 +58,6 @@ somiod-iot-middleware/
 ├── content-instance.sql      # SQL schema: content-instance table
 ├── subscription.sql          # SQL schema: subscription table
 ├── identification.txt        # Project authors
-└── img/                      # Screenshots used in this README
 ```
 
 ---
@@ -153,50 +152,50 @@ The `SomiodSubscriber` client subscribes to `api/somiod/#`, pulls the referenced
 
 `TestApplications/Form1.cs` provides a tree view of the entire SOMIOD hierarchy. Buttons along the top open dedicated forms to **create / update / delete** each resource type.
 
-![Publisher main window](img/start_page.png)
+![Publisher main window](start_page.png)
 
 ### Create / update an application
 
 The `CreateApp` form POSTs `{"resource-name": "<name>"}` to the API. Names are validated against an allow-list of letters and digits, and the server is consulted first to avoid collisions.
 
-![Create application](img/create_and_updt.png)
+![Create application](create_and_updt.png)
 
 ### Delete an application
 
 The same form lets you pick an existing application and remove it via DELETE.
 
-![Delete application](img/delete.png)
+![Delete application](delete.png)
 
 ### Create a container
 
 A container is created with `POST /api/somiod/{application}` and is parented to the selected application.
 
-![Create container](img/create_cont.png)
+![Create container](create_cont.png)
 
 ### Update / delete a container
 
 Mutations on a container update its `creation-datetime` and remove the row respectively.
 
-![Update container](img/updt_container.png)
-![Delete container](img/delete_cont.png)
+![Update container](updt_container.png)
+![Delete container](delete_cont.png)
 
 ### Create and delete content instances
 
 Selecting a container exposes **device-specific actions** (open/close door, dim light, move blinds). Each click publishes a fresh `content-instance` whose `content` field carries the command as JSON.
 
-![Create & delete content instance](img/create_and_del_cont_instance.png)
+![Create & delete content instance](create_and_del_cont_instance.png)
 
 ### Create a subscription
 
 A subscription needs a parent container, a name, an event filter (`Creation`, `Deletion` or both) and an endpoint — either `http://...` for a webhook or `host[:port]` for an MQTT broker.
 
-![Create subscription](img/create_subs.png)
+![Create subscription](create_subs.png)
 
 ### Publishing to a real IoT device
 
 When the publisher is aimed at a "light" container, the right-hand panel exposes a brightness slider that publishes percentage values straight to SOMIOD — these get fanned out as notifications to any subscribed endpoint (e.g. the `SomiodSubscriber`).
 
-![Light control](img/light_bulb.png)
+![Light control](light_bulb.png)
 
 ---
 
